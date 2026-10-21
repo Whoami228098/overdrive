@@ -130,6 +130,9 @@ jobs:
           sudo ln -sf /usr/bin/ld.lld-18 /usr/local/bin/ld.lld
           sudo ln -sf /usr/bin/clang-18 /usr/local/bin/clang
           sudo ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++
+          # PkgTool (.NET) probes libssl 1.1; ubuntu-24.04 ships 3.x only.
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.1.1
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1
           /usr/lib/llvm-18/bin/clang --version | head -1
 
       - name: Build
