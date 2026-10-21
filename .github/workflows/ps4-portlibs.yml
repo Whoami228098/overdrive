@@ -38,9 +38,9 @@ jobs:
           H="--host=$TRIPLE --build=x86_64-linux-gnu"
 
           # zlib
-          curl -sL https://zlib.net/fossials/zlib-1.3.1/zlib-1.3.1.tar.xz -o /tmp/z.tar.xz
-          mkdir /tmp/z && tar -xJf /tmp/z.tar.xz -C /tmp/z --strip-components=1
-          cd /tmp/z && CHOST=$TRIPLE ./configure --prefix="$P" --static
+          curl -sL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz -o /tmp/z.tar.gz
+          mkdir /tmp/z && tar -xzf /tmp/z.tar.gz -C /tmp/z --strip-components=1
+          cd /tmp/z && CHOST=$TRIPLE CC=clang ./configure --prefix="$P" --static
           make -j4 && make install
 
           # bzip2
