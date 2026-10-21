@@ -112,6 +112,13 @@ def main():
         run(["python3", ROOT / "tools/build_filesystem_helper.py", TITLE, helper, "--sdk", sdk],
             env=env, log=BUILD / "filesystem-helper.log")
     archive_ports = ports()
+    # The app bundle uses Embedded React's pinned packages. Reuse that same React
+    # for Node's native runtime tests, whose ESM imports resolve beside this tree.
+    test_modules = ROOT / "node_modules"
+    test_modules.mkdir(exist_ok=True)
+    test_react = test_modules / "react"
+    if not os.path.lexists(test_react):
+        test_react.symlink_to(er / "bridges/quickjs/js/node_modules/react", target_is_directory=True)
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
          ROOT / "runtime/js/native.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
