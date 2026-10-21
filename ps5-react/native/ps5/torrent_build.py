@@ -76,8 +76,14 @@ def prepare(sdk, ports, env, build):
         f'-DOPENSSL_SSL_LIBRARY={ports}/lib/libssl.a', f'-DOPENSSL_CRYPTO_LIBRARY={ports}/lib/libcrypto.a',
         '-DOPENSSL_USE_STATIC_LIBS=TRUE']
     for name, command in [('configure', cmake), ('build', ['cmake', '--build', str(destination), '--target', 'torrent-rasterbar', '--parallel', '6'])]:
-        with (build / f'torrent-{name}.log').open('w') as log:
-            subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
+        log_path = build / f'torrent-{name}.log'
+        with log_path.open('w') as log:
+            result = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+        if result.returncode:
+            text = log_path.read_text(errors='replace')
+            print('\n'.join(line for line in text.splitlines() if 'error:' in line or 'undefined symbol' in line), flush=True)
+            print(text[-6000:], flush=True)
+            raise RuntimeError(f'libtorrent {name} failed. Full log: {log_path}')
     library = destination / 'libtorrent.a'
     if not library.is_file():
         raise RuntimeError('libtorrent build did not produce libtorrent.a')

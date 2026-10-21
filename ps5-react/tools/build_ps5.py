@@ -113,6 +113,7 @@ def main():
             env=env, log=BUILD / "filesystem-helper.log")
     archive_ports = ports()
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
+         ROOT / "runtime/js/native.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
