@@ -1,6 +1,12 @@
 // ../pub-game-store/native/data/catalog.js
 // reconstructed from the esbuild bundle in eboot.bin
 
+// Build-time platform gate: which catalog platforms this build shows.
+// PS5 build: keep "ps5" (plus everything else). PS4 build: REMOVE "ps5" —
+// a PS4 console cannot run PS5 titles, so the PS4 client must not list them.
+var SUPPORTED_PLATFORMS = ["ps5", "ps4", "ps1", "ps2", "psp", "psx", "retro"];
+
+
 
   var games = [
     { "id": "PPSA03753", "title": "The Riftbreaker", "platform": "ps5", "providers": ["1fichier", "datanodes", "filecrypt", "gofile", "mediafire", "vikingfile"], "direct": true, "developer": "EXOR Studios", "publisher": "EXOR Studios", "releaseDate": "2021-10-14", "year": 2021, "genres": ["Action", "Strategy"], "features": ["Single-player", "Online multiplayer", "Co-op", "DualSense features", "Cloud saves"], "metacritic": 83, "recommendations": 22201, "sizeGb": 9, "art": { "cover": "https://image.api.playstation.com/vulcan/ap/rnd/202407/2915/b17e57f5255ab11f2c5b465ce846df2260d3af899713a9ee.png?w=384&thumb=false", "coverFallbacks": ["https://image.api.playstation.com/vulcan/ap/rnd/202104/0114/xvUwYjctSRFXETMYPdfkwDUc.png?w=384&thumb=false", "https://cdn.cloudflare.steamstatic.com/steam/apps/780310/library_600x900.jpg"], "tint": "#755761", "hero": "https://cdn.cloudflare.steamstatic.com/steam/apps/780310/library_hero.jpg", "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/780310/logo.png", "logoAspect": 1.778 } },
@@ -1957,5 +1963,8 @@
     { "id": "PPSA07837", "title": "WILD HEARTS", "platform": "ps5", "providers": ["mediafire", "vikingfile"], "direct": true, "developer": "KOEI TECMO GAMES CO., LTD.", "publisher": "Electronic Arts", "releaseDate": "2023-02-16", "year": 2023, "genres": ["Adventure"], "features": ["Single-player", "Online multiplayer", "Co-op", "Cross-play", "DualSense features"], "recommendations": 10638, "sizeGb": 69.05, "art": { "cover": "https://image.api.playstation.com/vulcan/ap/rnd/202210/2615/fb9fe7JhjCL5vOsWY3wpSOm8.png?w=384&thumb=false", "coverFallbacks": ["https://image.api.playstation.com/vulcan/ap/rnd/202302/0616/2defecbeebfa4cc2860d0255014cafe85e7fcd1b6885f34d.png?w=384&thumb=false", "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/library_600x900.jpg"], "tint": "#a0a099", "hero": "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/library_hero.jpg", "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/logo.png", "logoAspect": 1.778, "logoDark": true }, "work": 314 }
   ];
   var features = ["Single-player", "Online multiplayer", "Co-op", "Cross-play", "DualSense features", "Cloud saves"];
+
+games = games.filter((g) => SUPPORTED_PLATFORMS.includes(g.platform));
+twins = twins.filter((g) => SUPPORTED_PLATFORMS.includes(g.platform));
 
 export { features, games, twins };
