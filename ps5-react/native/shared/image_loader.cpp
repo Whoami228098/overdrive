@@ -783,8 +783,29 @@ private:
   }
 
   // Fetch thread: serves the entry from cached bytes, joins a transfer of its URL, or starts one.
+  // file:// URLs (covers shipped with the catalog on USB or /data) never touch the network:
+  // the bytes are read once, remembered like fetched ones, and decoded through the same queue.
+  std::shared_ptr<const Bytes> read_local(const std::string& url) {
+    if (url.rfind("file://", 0) != 0) return nullptr;
+    std::FILE* file = std::fopen(url.c_str() + 7, "rb");
+    if (!file) return nullptr;
+    std::fseek(file, 0, SEEK_END);
+    const long size = std::ftell(file);
+    std::fseek(file, 0, SEEK_SET);
+    if (size <= 0) { std::fclose(file); return nullptr; }
+    Bytes bytes;
+    bytes.resize(static_cast<std::size_t>(size));
+    const std::size_t got = std::fread(bytes.data(), 1, bytes.size(), file);
+    std::fclose(file);
+    if (got != bytes.size()) return nullptr;
+    auto body = std::make_shared<const Bytes>(std::move(bytes));
+    remember(url, body);
+    return body;
+  }
+
   void start_fetch(EntryPtr entry, unsigned& active) {
     if (auto body = cached(entry->url)) { ++counters.encoded_hits; decode_later({std::move(entry)}, body); return; }
+    if (auto body = read_local(entry->url)) { decode_later({std::move(entry)}, body); return; }
     if (auto body = disk_.read(entry->url)) {
       ++counters.disk_hits;
       remember(entry->url, body);
@@ -832,6 +853,7 @@ private:
       }
       if (cached(url) || disk_.has(url) || std::any_of(transfers_.begin(), transfers_.end(),
           [&](const Transfer& t) { return busy(t) && t.url == url; })) continue;
+      if (url.rfind("file://", 0) == 0) { read_local(url); continue; }
       Transfer* t = begin(url, true);
       if (!t) {
         std::lock_guard lock(mutex_);

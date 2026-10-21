@@ -106,7 +106,7 @@ function buildRelease(entry, source, index) {
 
 // The store's own entry shape: everything state/catalog.js touches must be
 // present and sane, because it normalizes without guards.
-function toGame(entry) {
+function toGame(entry, catalogDir) {
   const title = String(entry.title || '').trim();
   const platform = String(entry.platform || '').trim().toLowerCase();
   if (!title || !PLATFORMS.has(platform)) return null;
@@ -120,7 +120,16 @@ function toGame(entry) {
   const magnetOnly = releases.length === 0;
   if (magnetOnly && !ALLOW_MAGNETS) return null;
   const id = entry.title_id ? String(entry.title_id).toUpperCase() : hashId(title + platform);
-  const cover = typeof entry.cover_url === 'string' && entry.cover_url.startsWith('http') ? entry.cover_url : null;
+  // Covers ship beside the catalog on USB/data (file:///covers/<id>.jpg) or on a
+  // CDN (https). Relative paths resolve against the catalog file's directory.
+  let cover = null;
+  if (typeof entry.cover_url === 'string') {
+    if (entry.cover_url.startsWith('file:///covers/')) {
+      cover = 'file://' + catalogDir + '/' + entry.cover_url.slice(8);
+    } else if (entry.cover_url.startsWith('http')) {
+      cover = entry.cover_url;
+    }
+  }
   return {
     id,
     title,
@@ -161,14 +170,16 @@ function loadUserCatalog() {
   const games = [];
   const mods = [];
   const seen = new Set();
+  let catalogDir = '';
   for (const path of SEARCH_PATHS) {
     const data = readJson(path);
     if (!data) continue;
+    catalogDir = path.slice(0, path.lastIndexOf('/'));
     const gameList = Array.isArray(data) ? data : Array.isArray(data.games) ? data.games : [];
     const modList = Array.isArray(data.mods) ? data.mods : [];
     for (const entry of gameList) {
       try {
-        const game = toGame(entry);
+        const game = toGame(entry, catalogDir);
         if (!game) continue;
         const key = `${game.title.toLowerCase()}|${game.platform}`;
         if (seen.has(key)) continue;
