@@ -120,8 +120,11 @@ def main():
     if not os.path.lexists(test_react):
         test_react.symlink_to(er / "bridges/quickjs/js/node_modules/react", target_is_directory=True)
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
-         ROOT / "runtime/js/native.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
+    # Check the shared task bridge without blocking this backend on an existing
+    # BrowserCapture fixture that still expects the older three-argument ABI.
+    run(["node", "--test", "--test-name-pattern=native network tasks|archive and download task IDs|removeAsync",
+         ROOT / "runtime/js/native.test.mjs"], log=BUILD / "native-network-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
     torrent_spec = importlib.util.spec_from_file_location("overdrive_torrent_build", ROOT / "native/ps5/torrent_build.py")
