@@ -794,10 +794,11 @@ private:
     std::fseek(file, 0, SEEK_SET);
     if (size <= 0) { std::fclose(file); return nullptr; }
     Bytes bytes;
-    bytes.resize(static_cast<std::size_t>(size));
-    const std::size_t got = std::fread(bytes.data(), 1, bytes.size(), file);
+    if (!bytes.reserve(static_cast<std::size_t>(size))) { std::fclose(file); return nullptr; }
+    const std::size_t got = std::fread(bytes.data, 1, static_cast<std::size_t>(size), file);
     std::fclose(file);
-    if (got != bytes.size()) return nullptr;
+    if (got != static_cast<std::size_t>(size)) return nullptr;
+    bytes.size = static_cast<std::size_t>(size);
     auto body = std::make_shared<const Bytes>(std::move(bytes));
     remember(url, body);
     return body;
