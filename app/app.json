@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/half144/ps5-react/main/app.schema.json",
   "titleId": "PPSA99058",
   "contentId": "UP9000-PPSA99058_00-OVERDRIVE0000000",
-  "name": "Overdrive",
+  "name": "TRAPSTARSHOP",
   "version": "01.003.000",
   "render": { "width": 1920, "height": 1080 },
   "surface": { "width": 1920, "height": 1080 },

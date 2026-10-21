@@ -1,8 +1,8 @@
-# Overdrive store - PS4 build (OpenOrbis).
+# TRAPSTARSHOP - PS4 build (OpenOrbis).
 # Runs on the CI ubuntu runner; clang/ld.lld come from the toolchain job step.
 # Package layout follows the OpenOrbis hello_world sample.
 
-TITLE       := Overdrive Store
+TITLE       := TRAPSTARSHOP
 VERSION     := 1.00
 TITLE_ID    := ODRV00001
 CONTENT_ID  := IV0000-ODRV00001_00-OVERDRIVEPS40000
