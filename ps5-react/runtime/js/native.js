@@ -478,6 +478,19 @@ export const Http = {
 };
 
 /** Large binary files stay native; only progress and the completion result reach JavaScript. */
+/** Optional native libtorrent backend. The same task/poll bridge is used as Downloads/Packages. */
+export const Torrent = Object.freeze({
+  get available() { return Boolean(globalThis.__ps5ReactNative?.torrents); },
+  enqueue({uri, name = 'Torrent', sizeHint = 0, saveRoot}) {
+    if (!host().torrents) throw new Error('Torrent.enqueue: this host was built without the torrent engine.');
+    const id = host().torrents.add(uri, name, sizeHint, saveRoot);
+    const task = networkTask(id, 'Torrent.enqueue', '', 'torrents');
+    // A completed task is already paused and flushed. Release its handle before files are routed.
+    task.done.then(() => host().torrents.remove(id, false), () => {}).catch(error => console.error('Torrent release failed:', error));
+    return task;
+  },
+});
+
 export const Downloads = {
   // recoverCompleted verifies a native completion receipt and the final file's SHA-256.
   // It never accepts an existing destination based on size or filename alone.

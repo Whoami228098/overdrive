@@ -5,11 +5,11 @@
 // The catalog content itself belongs to the user; this module only reads,
 // validates and merges. Entries with no usable source are skipped.
 
-import { FileSystem } from '@ps5-react/core';
+import { FileSystem, Torrent } from '@ps5-react/core';
+import { torrentKey } from '../state/download-sources.js';
 
-// Magnet sources need the torrent engine (v2). Until it ships they are kept
-// but hidden from the store, so no one hits a download that cannot start.
-const ALLOW_MAGNETS = false;
+// An older/desktop host without libtorrent keeps these entries hidden.
+const ALLOW_MAGNETS = true;
 
 const PLATFORMS = new Set(['ps4', 'ps5', 'ps1', 'ps2', 'psp', 'psx', 'retro']);
 
@@ -81,8 +81,21 @@ function guessFormat(url) {
 // A release the store's SourcePicker and download queue already understand:
 // a direct HTTP file (pkg / ffpkg / exfat / ffpfsc) or an archive set (parts).
 function buildRelease(entry, source, index) {
-  const isMagnet = source.startsWith('magnet:');
-  if (isMagnet) return null; // v2: the torrent engine takes these.
+  const isMagnet = /^magnet:\?/i.test(source);
+  if (isMagnet) {
+    if (!ALLOW_MAGNETS || !Torrent.available) return null;
+    let key;
+    try { key = torrentKey(source); } catch { return null; }
+    const sizeBytes = entry.size_gb ? Math.round(Number(entry.size_gb) * 1e9) : 0;
+    return {
+      id: hashId(key), type: 'torrent', format: 'torrent', source: 'user',
+      label: [entry.region, entry.version].filter(Boolean).join(' · ') || 'Torrent',
+      provider: 'BitTorrent', health: 'ok', version: entry.version || null,
+      filename: `${entry.title_id || entry.id || 'user'}-${key}`,
+      sizeBytes: Number.isSafeInteger(sizeBytes) && sizeBytes > 0 ? sizeBytes : 0,
+      url: source.replace(/^magnet:/i, 'magnet:')
+    };
+  }
   const format = (entry.format || guessFormat(source) || 'pkg').toLowerCase();
   const sizeBytes = entry.size_gb ? Math.round(Number(entry.size_gb) * 1e9) : 0;
   const label = [entry.region, entry.dub === 'RUS' ? 'RUS' : null].filter(Boolean).join(' · ') || `Mirror ${index + 1}`;
@@ -118,7 +131,7 @@ function toGame(entry, catalogDir) {
     if (release) releases.push(release);
   });
   const magnetOnly = releases.length === 0;
-  if (magnetOnly && !ALLOW_MAGNETS) return null;
+  if (magnetOnly) return null;
   const id = entry.title_id ? String(entry.title_id).toUpperCase() : hashId(title + platform);
   // Covers ship beside the catalog on USB/data (file:///covers/<id>.jpg) or on a
   // CDN (https). Relative paths resolve against the catalog file's directory.

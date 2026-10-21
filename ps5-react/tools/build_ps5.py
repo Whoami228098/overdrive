@@ -112,6 +112,14 @@ def main():
         run(["python3", ROOT / "tools/build_filesystem_helper.py", TITLE, helper, "--sdk", sdk],
             env=env, log=BUILD / "filesystem-helper.log")
     archive_ports = ports()
+    run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
+         ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
+    # The optional backend is built from hash-pinned public sources with this same SDK.
+    import importlib.util
+    torrent_spec = importlib.util.spec_from_file_location("overdrive_torrent_build", ROOT / "native/ps5/torrent_build.py")
+    torrent_builder = importlib.util.module_from_spec(torrent_spec)
+    torrent_spec.loader.exec_module(torrent_builder)
+    torrent = torrent_builder.prepare(sdk, archive_ports, env, BUILD)
     network_ports = archive_ports if config.get("networking") else None
     native = hui / "tooling/native"
     host_tool = BUILD / "host/ps5-native-tool"
@@ -168,6 +176,7 @@ def main():
                layouts_c, *[hui / ("src/platform/ps5/" + n + ".cpp") for n in ("display_egl", "pad", "system", "audio_out")],
                hui / "src/core/input.cpp", hui / "src/audio/mixer.cpp", hui / "src/runtime/app_heap.c", hui / "src/runtime/runtime_shims.c",
                native / "app_crt.cpp", native / "app_cpp_runtime.cpp"]
+    sources.extend(torrent["sources"])
     hb = harfbuzz() / "src"
     # HarfBuzz (MIT): OpenType shaping and outline rasterization for runtime text, single-threaded.
     harfbuzz_sources = [hb / "harfbuzz.cc", hb / "hb-raster-draw.cc", hb / "hb-raster-image.cc"]
@@ -176,6 +185,7 @@ def main():
     sources.extend([*harfbuzz_sources, sb / "Source/SheenBidi.c"])
     includes = [hui / "src", ROOT / "native/shared", ROOT / "native/ps5", generated, gl / "include", er / "engine/include", er / "bridges/quickjs",
                 er / "backends/software", er / "engine/text", hb, sb / "Headers", sb / "Source", quickjs, stb_image(), archive_ports / "include"]
+    includes.extend(torrent["includes"])
     if access_client:
         sources.append(access_client / "examples/sandbox-elevation/src/elevation.cpp")
         includes.append(access_client / "examples/sandbox-elevation")
@@ -206,13 +216,15 @@ def main():
         obj = BUILD / "obj" / f"{i}-{source.name}.o"
         cpp = source.suffix in (".cpp", ".cc")
         flags = ["-std=c++20", "-fno-exceptions", "-fno-rtti"] if cpp else ["-std=c11"]
+        if source.name == "torrent_api.cpp":
+            flags = ["-std=c++20", "-fexceptions", "-frtti"]
         # A video app keeps 448 MiB of flexible memory outside its heap for the hardware decoders' workspaces.
         if source.name == "app_heap.c" and config.get("video"):
             flags = flags + ["-DHUI_HEAP_RESERVE=(448u * 1024u * 1024u)"]
         warnings = (["-w", "-DHB_TINY", "-DHB_HAS_RASTER"] if source in harfbuzz_sources else
                     ["-w", "-DSB_CONFIG_UNITY"] if source.name == "SheenBidi.c" else ["-Wall", "-Wextra", "-Werror"])
         run(["sh", hui / "tooling/prospero-clang18", *flags, "-O2", *warnings, *layout_assets.get(source, []),
-             "-DPROSPERO=1", "-DGL_GLEXT_PROTOTYPES=1", *shlex.split(definitions),
+             "-DPROSPERO=1", "-DGL_GLEXT_PROTOTYPES=1", *torrent["definitions"], *shlex.split(definitions),
              *[flag for path in includes for flag in ("-I", path)], "-c", source, "-o", obj],
             env=env, log=BUILD / (f"compile-{i}.log"))
         objects.append(obj)
@@ -232,7 +244,7 @@ def main():
          "--start-group", cross / "liber-software.a", cross / "bridge/liber-bridge-quickjs.a",
          cross / "bridge/engine/libembedded-react.a", cross / "_deps/quickjs-build/libqjs.a",
          gl / "lib/libPS5OpenGL.a", libs / "libunwind.a", libs / "libc++abi.a", libs / "libc++.a",
-         *video_libs, *network_libs, *archive_libs, builtins, "--end-group", *video_stubs, "--as-needed", *agc_stubs,
+         *torrent["libraries"], *video_libs, *network_libs, *archive_libs, builtins, "--end-group", *video_stubs, "--as-needed", *agc_stubs,
          *sorted(libs.glob("*.so"))],
         env=env, log=BUILD / "link.log")
     elf = BUILD / "eboot.elf"
@@ -285,6 +297,11 @@ def main():
     art = sorted([*(app_dir / "sce_sys").glob("*.png"), *(app_dir / "sce_sys").glob("*.dds")])
     for path in art:
         shutil.copy2(path, app / "sce_sys" / path.name)
+    notices = app / "notices"
+    notices.mkdir(exist_ok=True)
+    for label, license_path in zip(("libtorrent-COPYING", "Boost-LICENSE_1_0.txt"), torrent["licenses"]):
+        shutil.copy2(license_path, notices / label)
+    (app / "torrent-build.json").write_text(json.dumps(torrent["receipt"], indent=2) + "\n")
     if not any(path.name == "icon0.png" for path in art):
         # A reproducible proof icon in the demo's existing colors, without kit artwork.
         from PIL import Image, ImageDraw, ImageFont

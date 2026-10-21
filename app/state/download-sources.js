@@ -28,7 +28,39 @@
     }
     return /\bHTTP (401|403)\b/.exec(message)?.[1] ?? null;
   }
+  // A stable directory key shared with the native engine (hex v1 preferred over v2).
+  function torrentKey(uri) {
+    if (typeof uri !== "string" || uri.length > 16384 || !/^magnet:\?/i.test(uri) || /[\s\\\x00-\x1f]/.test(uri))
+      throw new Error("Invalid magnet URI.");
+    let v1 = null, v2 = null;
+    for (const part of uri.slice(8).split("&")) {
+      const at = part.indexOf("=");
+      if (at < 0 || part.slice(0, at).toLowerCase() !== "xt") continue;
+      const value = decodeURIComponent(part.slice(at + 1));
+      let hash = /^urn:btih:([a-f0-9]{40})$/i.exec(value)?.[1]?.toLowerCase();
+      const base32 = /^urn:btih:([a-z2-7]{32})$/i.exec(value)?.[1]?.toUpperCase();
+      if (base32) {
+        let bits = 0, buffer = 0;
+        hash = "";
+        for (const char of base32) {
+          buffer = (buffer << 5) | "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(char);
+          bits += 5;
+          if (bits >= 8) {
+            bits -= 8;
+            hash += ((buffer >> bits) & 255).toString(16).padStart(2, "0");
+            buffer &= (1 << bits) - 1;
+          }
+        }
+      }
+      const sha256 = /^urn:btmh:1220([a-f0-9]{64})$/i.exec(value)?.[1]?.toLowerCase();
+      if (hash) { if (v1 && v1 !== hash) throw new Error("Conflicting magnet hashes."); v1 = hash; }
+      if (sha256) { if (v2 && v2 !== sha256) throw new Error("Conflicting magnet hashes."); v2 = sha256; }
+    }
+    if (!v1 && !v2) throw new Error("Magnet needs a valid v1 or v2 info hash.");
+    return v1 ? `v1-${v1}` : `v2-${v2}`;
+  }
   function sourceKind(release) {
+    if (release.type === "torrent" || /^magnet:\?/i.test(release.magnet || release.url || "")) return "torrent";
     if (release.manifestUrl) return "manifest";
     const value = release.browserUrl || release.url;
     if (!value) return "unavailable";
@@ -124,6 +156,10 @@
       if (directURL) return direct(directURL, signal);
       const url = release.browserUrl || release.url;
       const kind = sourceKind(release);
+      if (kind === "torrent") {
+        const uri = (release.magnet || url).replace(/^magnet:/i, "magnet:");
+        return { type: "torrent", uri, key: torrentKey(uri) };
+      }
       if (kind === "unavailable") throw new Error("Source unavailable: no download URL.");
       if (kind === "direct") return { url: webURL(url).url, rejectHtml: true };
       if (kind === "manifest") throw new Error("Split manifests must be resolved by the queue.");
@@ -153,4 +189,4 @@
     } };
   }
 
-export { archiveRefusal, BrowserRequired, cancellation, createSourceResolver, sourceKind, webURL };
+export { archiveRefusal, BrowserRequired, cancellation, createSourceResolver, sourceKind, torrentKey, webURL };

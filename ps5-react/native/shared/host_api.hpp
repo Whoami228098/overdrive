@@ -271,6 +271,9 @@ JSValue ps5_react_archive_api(JSContext* ctx);
 JSValue ps5_react_inspection_api(JSContext* ctx);
 // ABI v5 additive package installs: install(path, name), cancel(id), poll().
 JSValue ps5_react_package_api(JSContext* ctx);
+// Additive torrent backend: add/cancel/pause/resume/remove/poll; network I/O stays on its worker.
+// Only present when PS5_REACT_TORRENT is enabled by the host build.
+JSValue ps5_react_torrent_api(JSContext* ctx);
 
 // ABI v7: filename-bound browser capture tasks (PS5 only).
 JSValue ps5_react_browser_capture_api(JSContext* ctx);

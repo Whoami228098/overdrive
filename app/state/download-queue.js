@@ -5,10 +5,11 @@
 // MODIFIED: any provider that needs the console browser (LinkVault's mirrors, Akirabox, Datanodes)
 // has its file link captured from the browser, like Vikingfile's.
 
+import { Torrent } from '@ps5-react/core';
 import { INCOMPLETE_PART, STALE_PARTIAL, cause } from '../downloads/errors.js';
 import { t } from '../i18n/core.js';
 import { archivePassword } from './archive-password.js';
-import { BrowserRequired, archiveRefusal, cancellation, createSourceResolver, sourceKind, webURL } from './download-sources.js';
+import { BrowserRequired, archiveRefusal, cancellation, createSourceResolver, sourceKind, torrentKey, webURL } from './download-sources.js';
 import { LINK_PREFIX, captureAnchor, linkForLog, otherSourceLink, validateCapturedLink } from './browser-links.js';
 import { readJSON } from './read-json.js';
 import { mountedImages, shadowRequest, within2 } from './shadowmount.js';
@@ -125,6 +126,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     packages,
     releasesOf,
     browserCapture,
+    torrents = Torrent,
     wait = (ms) => new Promise((resolve2) => setTimeout(resolve2, ms))
   }) {
     const legacy = `${dataDir}/overdrive/downloads.json`;
@@ -248,7 +250,12 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       if (!job2) throw new Error("Download is no longer in the queue.");
       return job2;
     };
-    const artifactFor = (release, root2) => release.parts ? {
+    const torrentDirectory = (release, root2) => `${root2}/downloads/torrents/${torrentKey(release.magnet || release.url)}`;
+    const torrentResume = (release, root2) => `${root2}/downloads/torrents/.resume/${torrentKey(release.magnet || release.url)}.resume`;
+    const artifactFor = (release, root2) => sourceKind(release) === "torrent" ? {
+      format: "torrent", directory: `${root2}/downloads/torrents`,
+      destination: torrentDirectory(release, root2), nextAction: "torrent"
+    } : release.parts ? {
       directory: `${root2}/downloads/sets/${release.filename}`,
       destination: `${root2}/downloads/extracted/${release.filename}`,
       nextAction: "extracted"
@@ -386,6 +393,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         job2.state = "resolving";
         job2.error = "";
         change();
+        if (sourceKind(job2.release) === "torrent") {
+          await executeTorrent(job2, signal);
+          return;
+        }
         if (job2.release.parts) {
           await executeSet(job2, signal);
           return;
@@ -514,6 +525,97 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         }
         pump(restarted ? job2 : void 0);
       }
+    }
+    async function executeTorrent(job2, signal) {
+      if (!torrents?.available) throw new Error("This host was built without the torrent engine.");
+      const resolved = await sources.resolve(job2.release, { signal });
+      if (signal.aborted) throw new Error("Cancelled.");
+      const destination = torrentDirectory(job2.release, job2.root);
+      const identity = storageIdentity(job2);
+      if (!job2.rootIdentity) job2.rootIdentity = identity;
+      if (fs.diskUsage(job2.root).free < stillNeeded(job2) + MARGIN2)
+        throw new Error("Not enough space on the selected drive. Free space and retry.");
+      fs.mkdir(job2.artifact.directory, { recursive: true });
+      job2.torrentDirectory = destination;
+      job2.downloadDestination = destination;
+      const task = torrents.enqueue({uri: resolved.uri, name: job2.title, sizeHint: job2.release.sizeBytes || 0, saveRoot: job2.root});
+      active2.task = task;
+      active2.transferring = true;
+      const abort = () => task.cancel();
+      signal.addEventListener("abort", abort);
+      const off = task.subscribe(progress => {
+        if (job2.state === "pausing") return;
+        if (ACTIVE.includes(progress.state)) job2.state = progress.state;
+        job2.written = progress.completedBytes ?? progress.written ?? 0;
+        job2.total = progress.total ?? job2.total;
+        job2.bytesPerSecond = progress.bytesPerSecond || 0;
+        job2.connections = progress.peers || 0;
+        job2.seeds = progress.seeds || 0;
+        if (++ticks % 20 === 0) {
+          try { save({sync: false}); }
+          catch (error) { job2.error = `Queue save failed: ${error.message}`; task.cancel(); }
+        }
+        emit2();
+      });
+      let result;
+      try { result = await task.done; }
+      finally { off(); signal.removeEventListener("abort", abort); }
+      storageIdentity(job2);
+      const files = result.files || [];
+      if (!files.length) throw new Error("Torrent completed without payload files.");
+      for (const file of files) {
+        if (!file.path.startsWith(destination + "/") || file.path.split("/").includes(".."))
+          throw new Error("Torrent returned a file outside its save directory.");
+        const info = fs.stat(file.path);
+        if (!info?.isFile || info.size !== file.size) throw new Error("A completed torrent file is missing or changed.");
+      }
+      job2.torrentFiles = files;
+      job2.written = job2.total = files.reduce((sum, file) => sum + file.size, 0);
+      job2.bytesPerSecond = 0;
+      const images = files.filter(file => /\.(ffpfsc|ffpfs|ffpkg|exfat)$/i.test(file.path));
+      const packaged = files.filter(file => /\.(pkg|fpkg)$/i.test(file.path));
+      if (images.length) {
+        const targets = publishedImages(job2, images.map(file => file.path));
+        if (targets.some(target => fs.exists(target))) throw new Error("Destination already exists; preserve it and inspect before retrying.");
+        fs.mkdir(`${job2.root}/homebrew`, {recursive: true});
+        images.forEach((file, index) => fs.rename(file.path, targets[index]));
+        job2.published = targets;
+        job2.artifact.nextAction = "shadowmount";
+        job2.artifact.destination = targets[0];
+        job2.state = "downloaded";
+      } else if (packaged.length) {
+        job2.packages = packaged.map(file => file.path);
+        job2.output = destination;
+        job2.artifact.nextAction = "installer-required";
+        job2.state = "installer-required";
+      } else {
+        const {folder, beside} = findGame(job2, destination);
+        if (folder) {
+          noteTitle(job2, titleIn(folder));
+          const target = `${job2.root}/homebrew/${folderName(job2.release)}-app`;
+          if (fs.exists(target)) throw new Error("Destination already exists; preserve it and inspect before retrying.");
+          fs.mkdir(`${job2.root}/homebrew`, {recursive: true});
+          fs.rename(folder, target);
+          job2.output = beside ? destination : target;
+          job2.published = [target];
+          job2.artifact.nextAction = "shadowmount";
+          job2.artifact.destination = target;
+          job2.state = "downloaded";
+        } else {
+        const archiveFiles = files.filter(file => /\.(zip|7z|rar|r[0-9]{2})$/i.test(file.path));
+        if (archiveFiles.length && archives) {
+          job2.downloadDestination = archiveFiles[0].path;
+          job2.artifact.nextAction = "extraction-required";
+          await extract(job2, archiveFiles.map(file => file.path));
+        } else {
+          job2.output = destination;
+          job2.artifact.nextAction = "downloaded";
+          job2.state = "file-downloaded";
+        }
+        }
+      }
+      notifications.show(t("downloads.notice.complete"), job2.title);
+      if (job2.state === "installer-required" && canInstall()) await install(job2);
     }
     // Headers are read on a native worker thread (issue #71): a download's growing file can make the
     // read wait for the drive until the download ends, and on the render thread that froze the app.
@@ -935,6 +1037,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       };
       const extracted = job2.output && [folderName(job2.release), legacyFolderName(job2.release)].map((name) => `${job2.root}/downloads/extracted/${name}`);
       const paths = [
+        ...(sourceKind(job2.release) === "torrent" ? [torrentDirectory(job2.release, job2.root), torrentResume(job2.release, job2.root)] : []),
         job2.artifact.destination,
         job2.downloadDestination,
         job2.output,
@@ -1086,6 +1189,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     function partialFiles(job2) {
       storageIdentity(job2);
       if (!job2.rootIdentity) throw new Error("This older task has no storage identity. Preserve and inspect its partial files.");
+      if (sourceKind(job2.release) === "torrent") return [torrentDirectory(job2.release, job2.root), torrentResume(job2.release, job2.root)];
       if (fs.exists(job2.parts?.[job2.partIndex]?.destination || job2.downloadDestination || job2.artifact.destination)) throw new Error("A final file exists. Retry to verify and recover it.");
       const destination = job2.parts?.[job2.partIndex]?.destination || job2.downloadDestination || job2.artifact.destination;
       const paths = [".part", ".resume", ".resume.tmp", ".complete", ".complete.tmp"].map((suffix) => destination + suffix);
@@ -1622,8 +1726,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         if (existing) return existing.id;
         if (release.unavailableReason) throw new Error(release.unavailableReason);
         const artifact2 = artifactFor(release, root2);
-        if (fs.exists(artifact2.destination)) throw new Error("Destination already exists. Choose another release or inspect the existing file.");
-        if (jobs.some((job2) => job2.artifact.destination === artifact2.destination)) throw new Error("Another queued release owns this filename.");
+        if (fs.exists(artifact2.destination) && !(sourceKind(release) === "torrent" && fs.exists(torrentResume(release, root2))))
+          throw new Error("Destination already exists. Choose another release or inspect the existing file.");
+        if (jobs.some((job2) => job2.artifact.destination === artifact2.destination ||
+          sourceKind(release) === "torrent" && job2.torrentDirectory === artifact2.destination)) throw new Error("Another queued release owns this filename.");
         const orphan = fs.exists(`${artifact2.destination}.part`);
         if (jobs.length === 32) jobs = jobs.filter((job2) => !COMPLETE.includes(job2.state));
         if (jobs.length === 32) throw new Error("Queue has 32 unfinished downloads. Finish or remove one first.");

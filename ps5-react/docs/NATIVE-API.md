@@ -698,3 +698,18 @@ Native shape: `browser.capture(prefix, suffix, timeoutSeconds, rejected, resume)
 ID; `browser.cancel(id)` requests cancellation; `browser.poll()` consumes
 terminal results. Calls submit/poll synchronously on the render thread; all
 payload transport runs on the worker.
+
+## Optional Torrent backend
+
+`Torrent.available` is false on hosts built without libtorrent. `Torrent.enqueue({uri,
+name, sizeHint, saveRoot})` returns the same `id`, `done`, `subscribe` and `cancel`
+task shape as Downloads. It performs magnet metadata/peer traffic on a native
+worker; cancel flushes resume data and releases the handle while retaining files.
+Completion returns verified `files: [{path, size}]`. The app queue routes the
+result to existing package/image/archive handling. Existing HTTP downloads use
+their original backend. Data lives under `saveRoot/downloads/torrents/<hash>`;
+fast-resume files are separate in `.resume`. There is no PS4 executable: this is
+the PS5 host downloading PS4 or PS5 game payloads. Console execution is unverified.
+
+The native C++ interface and state codes are in `native/shared/torrent_api.hpp`.
+The pinned source manifest is `native/ps5/torrent/dependencies.lock.json`.

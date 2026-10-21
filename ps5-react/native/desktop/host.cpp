@@ -5,6 +5,7 @@
 #include "image_loader.hpp"
 #include "archives.hpp"
 #include "packages.hpp"
+#include "torrent_api.hpp"
 #include "removals.hpp"
 #include "browser_capture.hpp"
 #include "lan.hpp"
@@ -182,6 +183,9 @@ struct Host {
     browser_capture::stop();
     lan::stop();
   packages::stop();
+#if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+  torrent::stop();
+#endif
   removals::stop();
   network::stop();
     video_layers::stop();

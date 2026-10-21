@@ -154,3 +154,14 @@ compatibility reference license. Build receipts record the archive and selected
 static library hashes. Preserve these notices and provide corresponding source
 for linked GPL components when distributing binaries; an archive of libraries
 and license texts alone does not satisfy source-distribution requirements.
+
+## Torrent backend
+
+libtorrent-rasterbar 2.0.10 (BSD-3-Clause) and header-only Boost 1.84.0
+(Boost Software License 1.0) are hash-pinned in
+`native/ps5/torrent/dependencies.lock.json`. `native/ps5/torrent_build.py` builds
+the static library against the same SDK and PacBrew OpenSSL as the host.
+The package includes their notices and `torrent-build.json` with source and
+library hashes. No upstream libtorrent patch was needed for the payload build.
+The separate worker is compiled with exceptions and RTTI; exceptions do not
+cross the synchronous JavaScript bridge. PS5 runtime validation remains pending.

@@ -1,0 +1,15 @@
+# Copyright (C) 2026 half144 and PS5 React contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+cmake_minimum_required(VERSION 3.20)
+project(overdrive_libtorrent LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+foreach(flag build_tests build_examples build_tools build_benchmark deprecated-functions logging)
+  set(${flag} OFF CACHE BOOL "" FORCE)
+endforeach()
+if(NOT TORRENT_SOURCE)
+  message(FATAL_ERROR "TORRENT_SOURCE must name libtorrent 2.0.10")
+endif()
+add_subdirectory("${TORRENT_SOURCE}" upstream)
+set_target_properties(torrent-rasterbar PROPERTIES OUTPUT_NAME torrent ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

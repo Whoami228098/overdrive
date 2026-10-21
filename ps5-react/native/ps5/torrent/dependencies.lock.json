@@ -1,0 +1,12 @@
+{
+  "libtorrent": {
+    "version": "2.0.10",
+    "url": "https://github.com/arvidn/libtorrent/releases/download/v2.0.10/libtorrent-rasterbar-2.0.10.tar.gz",
+    "sha256": "fc935b8c1daca5c0a4d304bff59e64e532be16bb877c012aea4bda73d9ca885d"
+  },
+  "boost": {
+    "version": "1.84.0",
+    "url": "https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.tar.xz",
+    "sha256": "2e64e5d79a738d0fa6fb546c6e5c2bd28f88d268a2a080546f74e5ff98f29d0e"
+  }
+}

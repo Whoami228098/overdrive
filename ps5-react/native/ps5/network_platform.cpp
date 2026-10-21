@@ -24,7 +24,13 @@ bool platform_start(std::string& error) {
     error = "native networking cannot read the system certificate store"; return false;
   }
   initialized = sceNetInit() == 0;
-  pool = sceNetPoolCreate("ps5-react-http", 1024*1024, 0);
+  // The optional peer engine shares this pool with HTTP; budget its bounded socket set separately.
+#if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+  constexpr int pool_bytes = 4 * 1024 * 1024;
+#else
+  constexpr int pool_bytes = 1024 * 1024;
+#endif
+  pool = sceNetPoolCreate("ps5-react-http", pool_bytes, 0);
   if (pool < 0) {
     if (initialized) sceNetTerm(); initialized = false;
     error = "native networking could not create its libSceNet pool"; return false;
