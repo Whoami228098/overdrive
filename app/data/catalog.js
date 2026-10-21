@@ -4,6 +4,8 @@
 // Build-time platform gate: which catalog platforms this build shows.
 // PS5 build: keep "ps5" (plus everything else). PS4 build: REMOVE "ps5" —
 // a PS4 console cannot run PS5 titles, so the PS4 client must not list them.
+import { userCatalog } from './user-catalog.js';
+
 var SUPPORTED_PLATFORMS = ["ps5", "ps4", "ps1", "ps2", "psp", "psx", "retro"];
 
 
@@ -1963,6 +1965,10 @@ var SUPPORTED_PLATFORMS = ["ps5", "ps4", "ps1", "ps2", "psp", "psx", "retro"];
     { "id": "PPSA07837", "title": "WILD HEARTS", "platform": "ps5", "providers": ["mediafire", "vikingfile"], "direct": true, "developer": "KOEI TECMO GAMES CO., LTD.", "publisher": "Electronic Arts", "releaseDate": "2023-02-16", "year": 2023, "genres": ["Adventure"], "features": ["Single-player", "Online multiplayer", "Co-op", "Cross-play", "DualSense features"], "recommendations": 10638, "sizeGb": 69.05, "art": { "cover": "https://image.api.playstation.com/vulcan/ap/rnd/202210/2615/fb9fe7JhjCL5vOsWY3wpSOm8.png?w=384&thumb=false", "coverFallbacks": ["https://image.api.playstation.com/vulcan/ap/rnd/202302/0616/2defecbeebfa4cc2860d0255014cafe85e7fcd1b6885f34d.png?w=384&thumb=false", "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/library_600x900.jpg"], "tint": "#a0a099", "hero": "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/library_hero.jpg", "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/1938010/logo.png", "logoAspect": 1.778, "logoDark": true }, "work": 314 }
   ];
   var features = ["Single-player", "Online multiplayer", "Co-op", "Cross-play", "DualSense features", "Cloud saves"];
+
+// TRAPSTARSHOP: the user's own catalog joins before the platform gate, so it
+// passes through the same filtering and normalization as the built-in data.
+games = games.concat(userCatalog.games);
 
 games = games.filter((g) => SUPPORTED_PLATFORMS.includes(g.platform));
 twins = twins.filter((g) => SUPPORTED_PLATFORMS.includes(g.platform));
