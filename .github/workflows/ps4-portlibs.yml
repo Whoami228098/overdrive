@@ -1,0 +1,86 @@
+name: ps4-portlibs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  portlibs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld llvm-18 make autoconf automake libtool pkg-config xz-utils
+
+      - name: Install the PS4 toolchain
+        run: |
+          curl -L -o /tmp/oo.tar.gz \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+          sudo mkdir -p /opt/openorbis
+          sudo tar -xzf /tmp/oo.tar.gz -C /opt/openorbis
+          sudo ln -sf /usr/bin/clang-18 /usr/local/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++
+          echo "OO_PS4_TOOLCHAIN=/opt/openorbis/OpenOrbis/PS4Toolchain" >> "$GITHUB_ENV"
+
+      - name: Build zlib, bzip2, mbedtls, curl, libarchive for PS4
+        run: |
+          set -e
+          T=/opt/openorbis/OpenOrbis/PS4Toolchain
+          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          P=/opt/portlibs
+          mkdir -p "$P"
+          TRIPLE=x86_64-pc-freebsd12-elf
+          export CC=clang CXX=clang++ AR=llvm-ar RANLIB=llvm-ranlib STRIP=llvm-strip
+          export CFLAGS="--target=$TRIPLE -fPIC -funwind-tables -O2 -I$T/include"
+          export CXXFLAGS="$CFLAGS"
+          export LDFLAGS="--target=$TRIPLE -L$T/lib"
+          H="--host=$TRIPLE --build=x86_64-linux-gnu"
+
+          # zlib
+          curl -sL https://zlib.net/fossials/zlib-1.3.1/zlib-1.3.1.tar.xz -o /tmp/z.tar.xz
+          mkdir /tmp/z && tar -xJf /tmp/z.tar.xz -C /tmp/z --strip-components=1
+          cd /tmp/z && CHOST=$TRIPLE ./configure --prefix="$P" --static
+          make -j4 && make install
+
+          # bzip2
+          curl -sL https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz -o /tmp/b.tar.gz
+          mkdir /tmp/b && tar -xzf /tmp/b.tar.gz -C /tmp/b --strip-components=1
+          cd /tmp/b && make -j4 libbz2.a CC="$CC" AR="$AR" RANLIB="$RANLIB" \
+            CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64 -Wall" \
+            && install -m644 libbz2.a "$P/lib/" && install -m644 bzlib.h "$P/include/"
+
+          # mbedtls 3.x (curl 7.80 supports mbedtls 2.x/3.x via its mbedtls backend; use 2.28 for safety)
+          curl -sL https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v2.28.10.tar.gz -o /tmp/m.tar.gz
+          mkdir /tmp/m && tar -xzf /tmp/m.tar.gz -C /tmp/m --strip-components=1
+          cd /tmp/m && make -j4 lib CFLAGS="$CFLAGS -DMBEDTLS_NO_PLATFORM_ENTROPY" SHARED=0 \
+            && cp -r library/*.a "$P/lib/" && cp -r include/mbedtls "$P/include/"
+
+          # curl (PacBrew portlibs config: static, mbedtls TLS, SceNet)
+          curl -sL https://curl.se/download/curl-7.80.0.tar.xz -o /tmp/c.tar.xz
+          mkdir /tmp/c && tar -xJf /tmp/c.tar.xz -C /tmp/c --strip-components=1
+          cd /tmp/c && autoreconf -fi
+          CFLAGS="$CFLAGS -DSOL_IP=0" LIBS="-lSceNet" PKG_CONFIG="" \
+          ./configure $H --prefix="$P" --disable-shared --enable-static \
+            --with-mbedtls="--with-mbedtls=$P" --without-openssl --without-libssh2 \
+            --disable-manual --disable-ldap --disable-ldaps --without-libidn2 \
+            --without-nghttp2 --without-zsh-functions-dir --without-fish-functions-dir \
+            --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt || true
+          sed -i 's|#include <osreldate.h>|//#include <osreldate.h>|g' include/curl/curl.h
+          make -j4 -C lib && make -C lib install && make -C include install
+
+          # libarchive 3.3.2 (PacBrew pin; no xz/openssl/expat on this SDK)
+          curl -sL https://github.com/libarchive/libarchive/releases/download/v3.3.2/libarchive-3.3.2.tar.gz -o /tmp/a.tar.gz
+          mkdir /tmp/a && tar -xzf /tmp/a.tar.gz -C /tmp/a --strip-components=1
+          cd /tmp/a && autoreconf -fi
+          ./configure $H --prefix="$P" --disable-shared --enable-static \
+            --without-xml2 --without-expat --without-openssl --without-lzma \
+            --with-bz2lib="$P" --with-zlib="$P" --without-nettle --without-iconv
+          make -j4 && make install
+
+      - name: Upload portlibs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps4-portlibs
+          path: /opt/portlibs/
+          if-no-files-found: error
