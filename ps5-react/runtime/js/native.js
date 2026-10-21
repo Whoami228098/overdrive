@@ -485,8 +485,10 @@ export const Torrent = Object.freeze({
     if (!host().torrents) throw new Error('Torrent.enqueue: this host was built without the torrent engine.');
     const id = host().torrents.add(uri, name, sizeHint, saveRoot);
     const task = networkTask(id, 'Torrent.enqueue', '', 'torrents');
-    // A completed task is already paused and flushed. Release its handle before files are routed.
-    task.done.then(() => host().torrents.remove(id, false), () => {}).catch(error => console.error('Torrent release failed:', error));
+    // Release terminal tasks too: a failed URI/checkpoint may never have created a handle.
+    // Completed handles are already paused/flushed; failed files remain available for a retry.
+    const release = () => { if (task.snapshot.state !== 'cancelled') host().torrents.remove(id, false); };
+    task.done.then(release, release).catch(error => console.error('Torrent release failed:', error));
     return task;
   },
 });

@@ -199,3 +199,20 @@ test('user catalog enables valid magnets only when the host supports torrents', 
     }
   }
 });
+
+test('failed torrent tasks release their native slot and retain the original failure', async () => {
+  let tick, snapshots=[], released=[];
+  const api={add:()=>8,poll:()=>snapshots,cancel(){},remove:(...args)=>released.push(args)};
+  const {Torrent}=evaluate(planned+'ps5-react/runtime/js/native.js',['Torrent'],{
+    __ps5ReactNative:{torrents:api},setInterval:fn=>(tick=fn,1),clearInterval(){},
+    gamepadSource:()=>({subscribe(){}}),onFrameUnbatched(){},useEffect(){},useLayoutEffect(){},useRef(){},useState(){}
+  });
+  const task=Torrent.enqueue({uri:magnet,saveRoot:'/data'});
+  snapshots=[{id:8,state:'failed',error:'Resume save failed'}];
+  tick();
+  await assert.rejects(task.done,/Resume save failed/);
+  await Promise.resolve();
+  assert.equal(released.length,1);
+  assert.equal(released[0][0],8);
+  assert.equal(released[0][1],false);
+});

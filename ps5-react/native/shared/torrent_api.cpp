@@ -41,6 +41,7 @@ struct Job {
   std::string resume_path, destination;
   bool finishing = false, pausing = false, saving = false, retire = false, delete_files = false;
   bool paused_ack = false, flush_save = false, saved_after_pause = false, removing = false;
+  bool checkpoint_failed = false;
   bool metadata_checked = false;
   Clock::time_point saved = Clock::now();
 };
@@ -228,11 +229,20 @@ void run() noexcept {
               entries.at(command.id).error.clear(); entries.at(command.id).destination = destination.string(); }
           } else {
             const auto found = jobs.find(command.id);
-            if (found == jobs.end()) continue;
+            if (found == jobs.end()) {
+              if (command.op == Op::remove && !command.delete_files) {
+                std::lock_guard<std::mutex> lock(mutex); entries.at(command.id).status.state = removed;
+              } else if (command.op == Op::remove) {
+                fail(command.id, "Torrent never started; inspect its existing files before deleting them.");
+              }
+              continue;
+            }
             Job& job = found->second;
+            if (job.removing) continue;
             if (command.op == Op::resume) {
               job.pausing = job.finishing = false;
               job.paused_ack = job.saved_after_pause = false;
+              job.checkpoint_failed = false;
               { std::lock_guard<std::mutex> lock(mutex); entries.at(job.id).status.state = queued; entries.at(job.id).error.clear(); }
               job.handle.resume();
             } else {
@@ -246,7 +256,7 @@ void run() noexcept {
         } catch (const std::exception& error) { fail(command.id, error.what()); }
       }
       std::vector<lt::alert*> alerts;
-      std::vector<int> erase;
+      std::map<int, bool> erase;
       session.pop_alerts(&alerts);
       for (const auto* alert : alerts) {
         const auto* torrent_alert = dynamic_cast<const lt::torrent_alert*>(alert);
@@ -261,7 +271,8 @@ void run() noexcept {
         Job& job = found->second;
         try {
           if (const auto* saved = lt::alert_cast<lt::save_resume_data_alert>(alert)) {
-            store_resume(job.resume_path, lt::write_resume_data_buf(saved->params));
+            try { store_resume(job.resume_path, lt::write_resume_data_buf(saved->params)); }
+            catch (...) { job.saving = false; job.checkpoint_failed = true; throw; }
             job.saving = false;
             if (job.flush_save && job.paused_ack && (job.pausing || job.finishing || exiting)) {
               job.saved_after_pause = true;
@@ -269,17 +280,18 @@ void run() noexcept {
             }
           } else if (const auto* failure = lt::alert_cast<lt::save_resume_data_failed_alert>(alert)) {
             job.saving = false;
-            if (failure->error != lt::errors::resume_data_not_modified) fail(job.id, "Resume save: " + failure->error.message());
+            if (failure->error != lt::errors::resume_data_not_modified) {
+              job.checkpoint_failed = true; fail(job.id, "Resume save: " + failure->error.message());
+            }
           } else if (lt::alert_cast<lt::torrent_paused_alert>(alert)) {
             if (job.handle.status().flags & lt::torrent_flags::paused) { job.paused_ack = true; save(job, true); }
           } else if (lt::alert_cast<lt::torrent_deleted_alert>(alert) ||
                      (lt::alert_cast<lt::torrent_removed_alert>(alert) && !job.delete_files)) {
             if (job.delete_files) fs::remove(job.resume_path);
-            { std::lock_guard<std::mutex> lock(mutex); entries.at(job.id).status.state = removed; }
-            erase.push_back(job.id);
+            erase[job.id] = false;
           } else if (const auto* failure = lt::alert_cast<lt::torrent_delete_failed_alert>(alert)) {
             fail(job.id, "Torrent file removal: " + failure->error.message());
-            erase.push_back(job.id);
+            erase[job.id] = true;
           } else if (const auto* failure = lt::alert_cast<lt::torrent_error_alert>(alert)) {
             fail(job.id, failure->error.message());
             job.handle.pause();
@@ -288,7 +300,12 @@ void run() noexcept {
           }
         } catch (const std::exception& error) { fail(job.id, error.what()); if (job.handle.is_valid()) job.handle.pause(); }
       }
-      for (int id : erase) jobs.erase(id);
+      for (const auto& item : erase) {
+        const int id = item.first;
+        jobs.erase(id);
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!item.second) entries.at(id).status.state = removed;
+      }
       for (auto& item : jobs) {
         Job& job = item.second;
         if (job.removing) continue;
@@ -297,8 +314,8 @@ void run() noexcept {
           if (status.has_metadata && !job.metadata_checked) inspect(job);
           if (exiting && !job.pausing) { job.pausing = true; job.handle.pause(); save(job, true); }
           if (status.is_seeding && !job.finishing) { job.finishing = job.pausing = true; job.handle.pause(); }
-          if (job.paused_ack && (job.pausing || job.finishing) && !job.saved_after_pause && !job.saving) save(job, true);
-          if (job.retire && job.paused_ack && job.saved_after_pause && !job.saving) {
+          if (job.paused_ack && (job.pausing || job.finishing) && !job.saved_after_pause && !job.saving && !job.checkpoint_failed) save(job, true);
+          if (job.retire && job.paused_ack && (job.saved_after_pause || job.checkpoint_failed) && !job.saving) {
             session.remove_torrent(job.handle, job.delete_files ? lt::session::delete_files : lt::remove_flags_t{});
             job.removing = true;
           }
@@ -335,7 +352,9 @@ void run() noexcept {
 }
 void command(Op op, int id, bool delete_files = false) {
   std::lock_guard<std::mutex> lock(mutex);
-  if (!running || !entries.count(id)) { latest_error = "Unknown torrent task or stopped session."; return; }
+  if (!entries.count(id)) { latest_error = "Unknown torrent task."; return; }
+  if (!running && op == Op::remove && !delete_files) { entries.at(id).status.state = removed; return; }
+  if (!running) { latest_error = "Torrent session is stopped."; return; }
   if (commands.size() >= 128) { latest_error = "Torrent command queue is full."; return; }
   commands.push_back({op, id, delete_files}); wake.notify_one();
 }
