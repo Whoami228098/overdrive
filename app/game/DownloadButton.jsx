@@ -196,7 +196,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
     return /* @__PURE__ */ (0, jsxs)(View, { style: { width: 408, gap: 12 }, children: [
       /* @__PURE__ */ (0, jsxs)(View, { onPress: advance, autoFocus: canDownload(game) && !disabled, focusKey: mainFocus, nextFocusDown: after(mainFocus), style: (_state) => [
         { position: "relative", height: 72, width: 408, borderRadius: 9 },
-        disabled ? { borderWidth: 2, borderColor: "#2a2a2f" } : inProgress ? { backgroundColor: "#212125" } : [{ backgroundColor: "#f2f2f3" }, _state.focused ? { backgroundColor: "#fff" } : null]
+        disabled ? { borderWidth: 2, borderColor: "#2a2a2f" } : inProgress ? { backgroundColor: "#212125" } : [{ backgroundColor: "#e0242c" }, _state.focused ? { backgroundColor: "#fff" } : null]
       ], children: [
         /* @__PURE__ */ (0, jsxs)(
           motion.View,
@@ -211,7 +211,7 @@ import { DownloadFormats, Text, View, motion } from '@ps5-react/core';
               inProgress && /* @__PURE__ */ (0, jsx)(
                 motion.View,
                 {
-                  style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#f2f2f3" },
+                  style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#e0242c" },
                   initial: { x: -WIDTH6 },
                   animate: { x: -hidden },
                   transition: glide,

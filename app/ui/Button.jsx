@@ -11,13 +11,13 @@ import { Text, motion, useIsFocused } from '@ps5-react/core';
   var BASE = { flexDirection: "row", flexShrink: 0, alignItems: "center", justifyContent: "center", gap: 12, borderRadius: 9 };
   var SIZE2 = { sm: { height: 48, paddingHorizontal: 18 }, md: { height: 60, paddingHorizontal: 24 }, lg: { height: 72, paddingHorizontal: 30 }, icon: { width: 60, height: 60 } };
   var BOX = {
-    primary: { backgroundColor: "#f2f2f3" },
+    primary: { backgroundColor: "#e0242c" },
     secondary: { backgroundColor: "#212125" },
     // Over light art a bare line vanishes: the translucent fill keeps the button readable anywhere.
     outline: { borderWidth: 2, borderColor: "#ffffff33", backgroundColor: "#00000099" },
     ghost: null
   };
-  var FOCUSED_BOX = { primary: { backgroundColor: "#fff" }, secondary: { backgroundColor: "#2b2b30" }, outline: { backgroundColor: "#17171a" }, ghost: null };
+  var FOCUSED_BOX = { primary: { backgroundColor: "#e0242c" }, secondary: { backgroundColor: "#2b2b30" }, outline: { backgroundColor: "#17171a" }, ghost: null };
   var TEXT = {
     primary: { fontFamily: "Inter-Regular", color: "#0d0d0f" },
     secondary: { fontFamily: "Inter-Regular", color: "#f2f2f3" },

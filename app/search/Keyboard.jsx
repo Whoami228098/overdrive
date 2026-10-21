@@ -43,7 +43,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
       { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, borderRadius: 9, backgroundColor: "#17171a" },
       wide ? { width: 276 } : { width: 84 },
       compact ? { height: 60 } : { height: 84 },
-      _state.focused ? { backgroundColor: "#f2f2f3" } : null
+      _state.focused ? { backgroundColor: "#e0242c" } : null
     ], initial: false, animate: { scale: 1 }, transition: { type: "tween", duration: 0.1, ease: [0.4, 0, 0.2, 1] }, whilePress: { scale: 0.95 }, children: /* @__PURE__ */ (0, jsx)(KeyFace, { label, icon, button, url: compact }) });
   });
   var Keyboard = (0, memo)(function Keyboard2({ onChange, onSubmit, url = false, focusKey }) {

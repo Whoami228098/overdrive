@@ -21,7 +21,7 @@ import { Text, View, motion, useIsFocused } from '@ps5-react/core';
     return /* @__PURE__ */ (0, jsx)(View, { style: { position: "absolute", left: 15, right: 15, bottom: 9, height: 3, overflow: "hidden", borderRadius: 14999, backgroundColor: "#ffffff1a" }, children: /* @__PURE__ */ (0, jsx)(
       motion.View,
       {
-        style: { position: "absolute", top: 0, bottom: 0, left: 0, width: 360, backgroundColor: "#f2f2f3" },
+        style: { position: "absolute", top: 0, bottom: 0, left: 0, width: 360, backgroundColor: "#e0242c" },
         initial: { x: -TRACK * sign },
         animate: { x: paused ? x : 0 },
         transition: paused ? { type: "tween", duration: 0 } : { type: "tween", duration: left / 1e3, ease: "linear" }

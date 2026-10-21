@@ -74,7 +74,7 @@ import { Text, View, motion, transitions, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#8a8a94", numberOfLines: 1, ellipsizeMode: "tail", lineHeight: 24 }, children: game.genres[0] ? genreLabel(game.genres[0]) : game.platform.toUpperCase() }),
       /* @__PURE__ */ (0, jsx)(Text, { focused, style: [{ marginTop: 6, height: 60, paddingRight: 6, fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#f2f2f3e6", numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, focused ? { color: "#f2f2f3" } : null], children: latin(rtl, game.title) }),
       /* @__PURE__ */ (0, jsxs)(View, { style: { marginTop: 9, height: 30, flexDirection: "row", alignItems: "center", gap: 12 }, children: [
-        game.metacritic != null && /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#f2f2f3", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 700, color: "#000000", lineHeight: 24 }, children: String(game.metacritic) }) }),
+        game.metacritic != null && /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#e0242c", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 700, color: "#000000", lineHeight: 24 }, children: String(game.metacritic) }) }),
         game.sizeGb != null && /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#a3a3ab" }, children: formatSize(game.sizeGb) })
       ] })
     ] });

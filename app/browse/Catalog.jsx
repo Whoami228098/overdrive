@@ -96,7 +96,7 @@ import { FocusScope, Image, Text, View, VirtualList, useIsFocused } from '@ps5-r
     return /* @__PURE__ */ (0, jsxs)(Fragment, { children: [
       /* @__PURE__ */ (0, jsx)(FocusRing, {}),
       /* @__PURE__ */ (0, jsx)(Text, { focused, style: [{ fontFamily: "Inter-Regular", fontSize: 21, color: "#f2f2f3d9", lineHeight: 30 }, focused ? { color: "#f2f2f3" } : null], children: t2("filters.title") }),
-      count > 0 && /* @__PURE__ */ (0, jsx)(View, { style: { height: 30, minWidth: 30, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#f2f2f3", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: String(count) }) }),
+      count > 0 && /* @__PURE__ */ (0, jsx)(View, { style: { height: 30, minWidth: 30, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#e0242c", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: String(count) }) }),
       /* @__PURE__ */ (0, jsx)(ButtonGlyph, { button: "triangle", size: 18 })
     ] });
   }

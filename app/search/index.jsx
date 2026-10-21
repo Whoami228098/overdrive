@@ -26,7 +26,7 @@ import { FocusScope, ScrollView, Text, View, VirtualList, motion } from '@ps5-re
     return /* @__PURE__ */ (0, jsxs)(View, { style: { width: 564, height: 84, flexDirection: "row", alignItems: "center", borderRadius: 14999, borderWidth: 2, borderColor: "#ffffff33", backgroundColor: "#ffffff0d", paddingHorizontal: 30 }, children: [
       /* @__PURE__ */ (0, jsx)(Icon, { name: "search", size: 20, color: colors.subtle }),
       query ? /* @__PURE__ */ (0, jsx)(Text, { style: [rtl ? { marginRight: 18, fontFamily: "Inter-Regular", fontSize: 27, color: "#f2f2f3", lineHeight: 36 } : { marginLeft: 18, fontFamily: "Inter-Regular", fontSize: 27, color: "#f2f2f3", lineHeight: 36 }, { writingDirection: "ltr" }], children: query }) : null,
-      /* @__PURE__ */ (0, jsx)(motion.View, { style: [{ width: 2, height: 30, backgroundColor: "#f2f2f3" }, query ? rtl ? { marginRight: 3 } : { marginLeft: 3 } : rtl ? { marginRight: 18 } : { marginLeft: 18 }], initial: { opacity: 1 }, animate: { opacity: 0 }, transition: blink }),
+      /* @__PURE__ */ (0, jsx)(motion.View, { style: [{ width: 2, height: 30, backgroundColor: "#e0242c" }, query ? rtl ? { marginRight: 3 } : { marginLeft: 3 } : rtl ? { marginRight: 18 } : { marginLeft: 18 }], initial: { opacity: 1 }, animate: { opacity: 0 }, transition: blink }),
       query ? null : /* @__PURE__ */ (0, jsx)(Text, { style: rtl ? { marginRight: 6, fontFamily: "Inter-Regular", fontSize: 27, color: "#8a8a94", lineHeight: 36 } : { marginLeft: 6, fontFamily: "Inter-Regular", fontSize: 27, color: "#8a8a94", lineHeight: 36 }, children: t2("search.placeholder") })
     ] });
   }

@@ -53,7 +53,7 @@ import { Image, Text, View, motion, useIsFocused } from '@ps5-react/core';
         children: [
           GENRE_ART[genre] ? /* @__PURE__ */ (0, jsx)(Image, { source: GENRE_ART[genre], resizeMode: "contain", style: art }) : /* @__PURE__ */ (0, jsx)(Fan, { covers }),
           !GENRE_ART[genre] && covers[0] && /* @__PURE__ */ (0, jsx)(Cover, { game: covers[0], style: [cover, front], label: false }),
-          active2 && /* @__PURE__ */ (0, jsx)(View, { style: { position: "absolute", right: 18, top: 18, zIndex: 20, width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#f2f2f3" }, children: /* @__PURE__ */ (0, jsx)(Icon, { name: "check", size: 14, strokeWidth: 3, color: colors.canvas }) }),
+          active2 && /* @__PURE__ */ (0, jsx)(View, { style: { position: "absolute", right: 18, top: 18, zIndex: 20, width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#e0242c" }, children: /* @__PURE__ */ (0, jsx)(Icon, { name: "check", size: 14, strokeWidth: 3, color: colors.canvas }) }),
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 24, color: "#f2f2f3", lineHeight: 36 }, children: genreLabel(genre) }),
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: "#8a8a94", lineHeight: 30 }, children: t2("catalog.gameCount", { count }) }),
           /* @__PURE__ */ (0, jsx)(Shine, { width: 200, round: "xl" }),

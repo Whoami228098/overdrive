@@ -12,7 +12,7 @@ import { Text, View } from '@ps5-react/core';
   function Chip({ label, onPress, focusKey }) {
     const { rtl } = useLocale();
     return /* @__PURE__ */ (0, jsxs)(View, { focusKey, onPress, style: [
-      { height: 60, flexDirection: "row", alignItems: "center", gap: 9, borderRadius: 14999, backgroundColor: "#f2f2f3" },
+      { height: 60, flexDirection: "row", alignItems: "center", gap: 9, borderRadius: 14999, backgroundColor: "#e0242c" },
       rtl ? { paddingRight: 24, paddingLeft: 18 } : { paddingLeft: 24, paddingRight: 18 }
     ], children: [
       /* @__PURE__ */ (0, jsx)(FocusRing, { round: "full" }),

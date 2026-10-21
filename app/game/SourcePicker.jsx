@@ -41,7 +41,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
       /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 3 }, children: [
         /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", alignItems: "center", gap: 12 }, children: [
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#f2f2f3" }, children: name }),
-          recommended ? /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#f2f2f3", paddingHorizontal: 9, paddingVertical: 2 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: t2("sources.recommended") }) }) : null
+          recommended ? /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#e0242c", paddingHorizontal: 9, paddingVertical: 2 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 18, fontWeight: 600, color: "#000000", lineHeight: 24 }, children: t2("sources.recommended") }) }) : null
         ] }),
         /* @__PURE__ */ (0, jsx)(Text, { style: [{ width: 450, fontFamily: "Inter-Regular", fontSize: 21, numberOfLines: 2, ellipsizeMode: "tail", lineHeight: 30 }, { color: ink2 }], children: detail2 || t2("sources.noDetails") }),
         status ? /* @__PURE__ */ (0, jsx)(StatusLine, { status }) : null

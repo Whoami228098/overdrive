@@ -34,7 +34,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View, useIsFocused } fro
   var reachable2 = ({ count, active: active2 }) => count > 0 || active2;
   function Tile({ focusKey, autoFocus, ...props }) {
     const { active: active2, onPress } = props;
-    return /* @__PURE__ */ (0, jsx)(View, { focusKey, autoFocus, focusable: reachable2(props), onPress, style: (_state) => active2 ? { height: 108, flex: 1, justifyContent: "center", gap: 9, borderRadius: 12, backgroundColor: "#f2f2f3", paddingHorizontal: 24 } : [{ height: 108, flex: 1, justifyContent: "center", gap: 9, borderRadius: 12, borderWidth: 2, borderColor: "#2a2a2f", paddingHorizontal: 24 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(TileFace, { ...props }) });
+    return /* @__PURE__ */ (0, jsx)(View, { focusKey, autoFocus, focusable: reachable2(props), onPress, style: (_state) => active2 ? { height: 108, flex: 1, justifyContent: "center", gap: 9, borderRadius: 12, backgroundColor: "#e0242c", paddingHorizontal: 24 } : [{ height: 108, flex: 1, justifyContent: "center", gap: 9, borderRadius: 12, borderWidth: 2, borderColor: "#2a2a2f", paddingHorizontal: 24 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(TileFace, { ...props }) });
   }
   function PillFace({ label, count, active: active2 }) {
     const focused = useIsFocused();
@@ -47,7 +47,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View, useIsFocused } fro
   }
   function Pill({ label, count, active: active2, onPress, focusKey, autoFocus, value }) {
     const cdn = value === "overdrive cdn" && !active2;
-    return /* @__PURE__ */ (0, jsxs)(View, { focusKey, autoFocus, focusable: reachable2({ count, active: active2 }), onPress, style: (_state2) => active2 ? { height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#f2f2f3", paddingHorizontal: 24 } : cdn ? { position: "relative", height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#17171a", paddingHorizontal: 24 } : [{ height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#17171a", paddingHorizontal: 24 }, _state2.focused ? { backgroundColor: "#2b2b30" } : null], children: [
+    return /* @__PURE__ */ (0, jsxs)(View, { focusKey, autoFocus, focusable: reachable2({ count, active: active2 }), onPress, style: (_state2) => active2 ? { height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#e0242c", paddingHorizontal: 24 } : cdn ? { position: "relative", height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#17171a", paddingHorizontal: 24 } : [{ height: 60, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14999, backgroundColor: "#17171a", paddingHorizontal: 24 }, _state2.focused ? { backgroundColor: "#2b2b30" } : null], children: [
       cdn ? /* @__PURE__ */ (0, jsx)(CdnAura, { radius: 20, width: 170 }) : null,
       cdn ? /* @__PURE__ */ (0, jsx)(CdnSpark, { size: 14 }) : null,
       /* @__PURE__ */ (0, jsx)(PillFace, { label, count, active: active2 })
@@ -131,7 +131,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View, useIsFocused } fro
       /* @__PURE__ */ (0, jsxs)(FocusScope, { trap: true, onBack: close, onAction: (action) => action !== "triangle" && action !== "options" || close(), children: [
         /* @__PURE__ */ (0, jsxs)(View, { style: { height: 96, flexDirection: "row", alignItems: "center", gap: 18, borderBottomWidth: 2, borderColor: "#2a2a2f" }, children: [
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 30, fontWeight: 600, color: "#f2f2f3", lineHeight: 42, letterSpacing: -0.75 }, children: t2("filters.title") }),
-          count > 0 && /* @__PURE__ */ (0, jsx)(View, { style: { height: 36, minWidth: 36, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#f2f2f3", paddingHorizontal: 12 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 600, color: "#000000" }, children: String(count) }) }),
+          count > 0 && /* @__PURE__ */ (0, jsx)(View, { style: { height: 36, minWidth: 36, alignItems: "center", justifyContent: "center", borderRadius: 14999, backgroundColor: "#e0242c", paddingHorizontal: 12 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, fontWeight: 600, color: "#000000" }, children: String(count) }) }),
           /* @__PURE__ */ (0, jsx)(View, { style: { flex: 1 } }),
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: "#a3a3ab", lineHeight: 30 }, children: t2("catalog.gameCount", { count: total }) })
         ] }),

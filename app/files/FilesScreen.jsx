@@ -35,7 +35,7 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
         /* @__PURE__ */ (0, jsx)(Text, { style: current ? { fontFamily: "Inter-Regular", fontSize: 23, fontWeight: 600, color: "#f2f2f3", numberOfLines: 1, ellipsizeMode: "tail" } : { fontFamily: "Inter-Regular", fontSize: 23, color: "#a3a3ab", numberOfLines: 1, ellipsizeMode: "tail" }, children: label }),
         detail2 ? /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#8a8a94", numberOfLines: 1, ellipsizeMode: "tail" }, children: detail2 }) : null
       ] }),
-      current ? /* @__PURE__ */ (0, jsx)(View, { style: { height: 9, width: 9, borderRadius: 14999, backgroundColor: "#f2f2f3" } }) : null
+      current ? /* @__PURE__ */ (0, jsx)(View, { style: { height: 9, width: 9, borderRadius: 14999, backgroundColor: "#e0242c" } }) : null
     ] });
   }
   function RailItem({ onPress, focusKey, autoFocus, onFocus, ...face }) {
@@ -47,7 +47,7 @@ import { FileSystem, FocusScope, ScrollView, Text, View, useIsFocused } from '@p
   function ShadowMountStatus({ up }) {
     const t2 = useT();
     return /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", gap: 18, paddingHorizontal: 18, paddingTop: 6 }, children: [
-      /* @__PURE__ */ (0, jsx)(View, { style: up ? { marginTop: 9, height: 12, width: 12, borderRadius: 14999, backgroundColor: "#f2f2f3" } : { marginTop: 9, height: 12, width: 12, borderRadius: 14999, borderWidth: 2, borderColor: "#8a8a94" } }),
+      /* @__PURE__ */ (0, jsx)(View, { style: up ? { marginTop: 9, height: 12, width: 12, borderRadius: 14999, backgroundColor: "#e0242c" } : { marginTop: 9, height: 12, width: 12, borderRadius: 14999, borderWidth: 2, borderColor: "#8a8a94" } }),
       /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, gap: 3 }, children: [
         /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#a3a3ab" }, children: t2(up ? "files.shadowMountOn" : "files.shadowMountOff") }),
         up ? null : /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 20, color: "#8a8a94", numberOfLines: 3, ellipsizeMode: "tail" }, children: t2("shadowMount.offAction") })

@@ -41,7 +41,7 @@ import { Text, View } from '@ps5-react/core';
     const t2 = useT();
     if (chart !== "rating") return /* @__PURE__ */ (0, jsx)(Text, { style: { marginTop: 6, fontFamily: "Inter-Regular", fontSize: 21, color: "#a3a3ab" }, children: DETAIL[chart](t2, game) });
     return /* @__PURE__ */ (0, jsxs)(View, { style: { marginTop: 6, flexDirection: "row", alignItems: "center", gap: 9 }, children: [
-      /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#f2f2f3", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, fontWeight: 700, color: "#000000", lineHeight: 30 }, children: String(game.metacritic ?? "\u2014") }) }),
+      /* @__PURE__ */ (0, jsx)(View, { style: { borderRadius: 3, backgroundColor: "#e0242c", paddingHorizontal: 9 }, children: /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, fontWeight: 700, color: "#000000", lineHeight: 30 }, children: String(game.metacritic ?? "\u2014") }) }),
       /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: "#a3a3ab" }, children: "Metacritic" })
     ] });
   }

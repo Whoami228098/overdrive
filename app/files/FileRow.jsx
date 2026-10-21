@@ -83,7 +83,7 @@ import { Text, View, useIsFocused } from '@ps5-react/core';
     ] });
   }
   var FileRow = (0, memo)(function FileRow2({ file, armed, installing, shadowMount, autoFocus, focusKey, onPress, onFocus }) {
-    return /* @__PURE__ */ (0, jsx)(View, { focusKey, autoFocus, onPress, onFocus, style: (_state) => armed ? { height: 102, flexDirection: "row", alignItems: "center", gap: 24, borderRadius: 12, backgroundColor: "#f2f2f3", paddingHorizontal: 24 } : [{ height: 102, flexDirection: "row", alignItems: "center", gap: 24, borderRadius: 12, paddingHorizontal: 24 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(Face2, { file, armed, installing, shadowMount }) });
+    return /* @__PURE__ */ (0, jsx)(View, { focusKey, autoFocus, onPress, onFocus, style: (_state) => armed ? { height: 102, flexDirection: "row", alignItems: "center", gap: 24, borderRadius: 12, backgroundColor: "#e0242c", paddingHorizontal: 24 } : [{ height: 102, flexDirection: "row", alignItems: "center", gap: 24, borderRadius: 12, paddingHorizontal: 24 }, _state.focused ? { backgroundColor: "#212125" } : null], children: /* @__PURE__ */ (0, jsx)(Face2, { file, armed, installing, shadowMount }) });
   });
 
 export { FileRow };
