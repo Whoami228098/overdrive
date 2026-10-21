@@ -20,6 +20,7 @@ import { useT } from '../i18n/index.js';
 import { featureLabel, relatedGames } from '../state/catalog.js';
 import { downloadQueue } from '../state/downloads.js';
 import { useNavActions } from '../state/nav.jsx';
+import { Icon } from '../ui/Icon.jsx';
 import { GameCard, useFavoriteAction } from '../ui/GameCard.jsx';
 import { SectionHeader } from '../ui/SectionHeader.jsx';
 import { lightGame, unlight } from '../ui/lightBar.js';
@@ -47,6 +48,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View } from '@ps5-react/
   }
   function GameScreen({ game, download, onBack, onOpenGame }) {
     const [dialog, setDialog] = (0, useState)(null);
+    const [detailsOpen, setDetailsOpen] = (0, useState)(false);
     const [captureJob, setCaptureJob] = (0, useState)(null);
     const [toast, setToast] = (0, useState)(null);
     const [viewing, setViewing] = (0, useState)(null);
@@ -94,7 +96,13 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View } from '@ps5-react/
               about.length > 0 ? /* @__PURE__ */ (0, jsx)(About, { paragraphs: about }) : null,
               game.features.length > 0 ? /* @__PURE__ */ (0, jsx)(Features, { features: game.features }) : null
             ] }),
-            /* @__PURE__ */ (0, jsx)(GameFacts, { game })
+            (0, jsxs)(View, { style: { width: 432 }, children: [
+              (0, jsx)(View, { onPress: () => setDetailsOpen((open) => !open), style: (_state2) => [{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 9, borderWidth: 2, borderColor: "#2a2a2f", paddingHorizontal: 18, paddingVertical: 14 }, _state2.focused ? { backgroundColor: "#212125" } : null], children: [
+                (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 24, fontWeight: "600", color: "#f2f2f3" }, children: t2("game.details") }),
+                (0, jsx)(Icon, { name: detailsOpen ? "chevronUp" : "chevronDown", size: 16, color: "#f2f2f3" })
+              ] }),
+              detailsOpen ? (0, jsx)(View, { style: { marginTop: 18 }, children: (0, jsx)(GameFacts, { game }) }) : null
+            ] })
           ] }),
           related.length > 0 ? /* @__PURE__ */ (0, jsx)(Related, { games: related, onOpenGame }) : null
         ] })
