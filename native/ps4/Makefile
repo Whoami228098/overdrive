@@ -26,7 +26,7 @@ LDFLAGS     := -m elf_x86_64 -pie --script $(TOOLCHAIN)/link.x --eh-frame-hdr -L
 CC          := clang
 CCX         := clang++
 LD          := ld.lld
-BIN         := $(TOOLCHAIN)/bin
+BIN         := $(TOOLCHAIN)/bin/linux
 
 _unused     := $(shell mkdir -p $(INTDIR))
 
