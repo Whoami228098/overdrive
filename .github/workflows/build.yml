@@ -102,3 +102,65 @@ jobs:
           esac
           gh release view "$tag" --json isDraft,tagName,assets \
             --jq '"\(.tagName) draft=\(.isDraft) " + ([.assets[] | "\(.name) \(.size)"] | join(", "))'
+
+  ps4:
+    needs: ps5
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the OpenOrbis toolchain
+        uses: actions/cache@v4
+        with:
+          path: /opt/openorbis
+          key: openorbis-v0.5.4
+
+      - name: Install the PS4 toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld llvm-18
+          if [ ! -d /opt/openorbis/OpenOrbis/PS4Toolchain ]; then
+            curl -L -o /tmp/oo.tar.gz \
+              https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+            sudo mkdir -p /opt/openorbis
+            sudo tar -xzf /tmp/oo.tar.gz -C /opt/openorbis
+          fi
+          echo "OO_PS4_TOOLCHAIN=/opt/openorbis/OpenOrbis/PS4Toolchain" >> "$GITHUB_ENV"
+          sudo ln -sf /usr/bin/ld.lld-18 /usr/local/bin/ld.lld
+          sudo ln -sf /usr/bin/clang-18 /usr/local/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++
+          /usr/lib/llvm-18/bin/clang --version | head -1
+
+      - name: Build
+        working-directory: native/ps4
+        run: |
+          PATH="/usr/lib/llvm-18/bin:$PATH"
+          make
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Overdrive-PS4
+          path: native/ps4/IV0000-ODRV00001_00-OVERDRIVEPS40000.pkg
+          if-no-files-found: error
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/.*var VERSION = "\([^"]*\)".*/\1/p' app/version.js)
+          test -n "$version" || { echo "no VERSION in app/version.js" >&2; exit 1; }
+          tag="v$version"
+          draft=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .draft")
+          case "$draft" in
+            "")
+              gh release create "$tag" native/ps4/*.pkg --draft --target "$GITHUB_SHA" \
+                --title "Overdrive $tag" --notes "Test build of $GITHUB_SHA." ;;
+            true)
+              gh release upload "$tag" native/ps4/*.pkg --clobber ;;
+            *)
+              echo "$tag is already published: attaching nothing" >&2 ;;
+          esac
+          gh release view "$tag" --json assets --jq '"ps4 asset: " + ([.assets[].name] | join(", "))'
