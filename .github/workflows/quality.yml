@@ -1,0 +1,57 @@
+name: native framework quality
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  linux-framework:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Install native test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 llvm-18 cmake ninja-build build-essential \
+            libsdl2-dev libgl1-mesa-dev libcurl4-openssl-dev libarchive-dev liblzma-dev \
+            libssl-dev zlib1g-dev nasm pkg-config nodejs npm python3-venv xvfb xauth
+          for tool in clang clang++ llvm-config; do
+            sudo ln -sf "/usr/bin/$tool-18" "/usr/local/bin/$tool"
+          done
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --disable-pip-version-check -r ps5-react/requirements.txt
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - name: Cache pinned dependency sources
+        uses: actions/cache@v4
+        with:
+          path: ps5-react/.deps
+          key: deps-${{ hashFiles('ps5-react/dependencies.lock.json') }}
+      - name: Record exact source and host context
+        run: |
+          mkdir -p quality-evidence
+          git rev-parse HEAD > quality-evidence/source-commit.txt
+          uname -a > quality-evidence/host.txt
+          clang --version >> quality-evidence/host.txt
+          node --version >> quality-evidence/host.txt
+          python3 --version >> quality-evidence/host.txt
+      - name: Run complete native framework test suite
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          SDL_AUDIODRIVER: dummy
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' npm test
+      - name: Save framework evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-framework-quality
+          path: |
+            quality-evidence/
+            ps5-react/.build/**/*.log
+            ps5-react/.build/**/self-test*.json
+          if-no-files-found: error
