@@ -279,7 +279,12 @@ void Writer::sync_loop(Receipt::Lines* lines, std::mutex& reading, std::atomic<s
     timings_.sync_us += elapsed_us(syncing);
     ++timings_.syncs;
     if (!synced) fail(std::strerror(error));
-    else if (progress) progress(++synced_files, total);
+    else if (progress) {
+      // Increment and deliver as one ordered operation. Otherwise a preempted
+      // callback for N can overwrite the final N+1 snapshot after all joins.
+      std::lock_guard lock(reading);
+      progress(++synced_files, total);
+    }
   }
 }
 

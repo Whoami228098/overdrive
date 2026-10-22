@@ -79,16 +79,22 @@ void round_trip(const std::string& dir, std::mt19937& rng, std::size_t ring) {
     expected += sha(data) + "|" + name + "\n";
     contents.push_back(std::move(data));
   }
-  std::atomic<std::size_t> reports{0}, last_total{0}, most{0};
+  std::atomic<std::size_t> reports{0}, last_total{0}, most{0}, last_seen{0};
+  std::atomic<bool> regressed{false};
   const auto error = writer.finish([&](std::size_t synced, std::size_t total) {
     ++reports;
     last_total = total;
+    // Make a preempted early callback deterministic: a later callback must not
+    // overtake it and leave the final consumer snapshot short of the real count.
+    if (synced == 1 && total > 1) usleep(3000);
+    if (synced < last_seen.exchange(synced)) regressed = true;
     for (auto seen = most.load(); synced > seen && !most.compare_exchange_weak(seen, synced);) {}
   });
   if (!error.empty()) std::fprintf(stderr, "error: %s\n", error.c_str());
   assert(error.empty() && committed(receipt, dir) == expected);
   // One report before the fsyncs and one after each.
   assert(reports == std::size_t(files) + 1 && last_total == std::size_t(files) && most == std::size_t(files));
+  assert(!regressed && last_seen == std::size_t(files));
   for (int i = 0; i < files; ++i) {
     assert(slurp(dir + "/f" + std::to_string(i)) == contents[i]);
     unlink((dir + "/f" + std::to_string(i)).c_str());
