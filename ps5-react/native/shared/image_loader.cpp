@@ -787,6 +787,9 @@ private:
   // the bytes are read once, remembered like fetched ones, and decoded through the same queue.
   std::shared_ptr<const Bytes> read_local(const std::string& url) {
     if (url.rfind("file://", 0) != 0) return nullptr;
+    struct stat info{};
+    if (::stat(url.c_str() + 7, &info) || !S_ISREG(info.st_mode) ||
+        info.st_size <= 0 || static_cast<unsigned long long>(info.st_size) > kMaxEncodedBytes) return nullptr;
     std::FILE* file = std::fopen(url.c_str() + 7, "rb");
     if (!file) return nullptr;
     if (std::fseek(file, 0, SEEK_END)) { std::fclose(file); return nullptr; }
@@ -856,9 +859,12 @@ private:
         url = std::move(warms_.front());
         warms_.pop_front();
       }
+      // Local covers already persist on disk. Warming thousands of them would
+      // reread the library before foreground requests can use the fetch worker.
+      // Explicit prefetch() still reads and decodes a selected image normally.
+      if (url.starts_with("file://")) continue;
       if (cached(url) || disk_.has(url) || std::any_of(transfers_.begin(), transfers_.end(),
           [&](const Transfer& t) { return busy(t) && t.url == url; })) continue;
-      if (url.rfind("file://", 0) == 0) { read_local(url); continue; }
       Transfer* t = begin(url, true);
       if (!t) {
         std::lock_guard lock(mutex_);

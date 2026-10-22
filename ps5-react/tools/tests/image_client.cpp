@@ -102,6 +102,12 @@ int main(int argc, char** argv) {
       std::fwrite(results[0].pixels, 4, static_cast<std::size_t>(results[0].width) * results[0].height, file);
       std::fclose(file);
     }
+  } else if (mode == "warm-local" && argc >= 4) {
+    images::warm({url});
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    load(argv[3], 64, 64, 0, now);
+    const auto results = wait(1, 2000);
+    std::printf("{\"ready\":%s}\n", !results.empty() && results[0].ready ? "true" : "false");
   } else if (mode == "shared") {
     // Two references to one box share an entry, another box shares the fetch, and a finished
     // entry reports at once.

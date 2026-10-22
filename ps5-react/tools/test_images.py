@@ -160,15 +160,18 @@ def main():
             assert result['failed'] and 'local image' in result['error'], result
         result = run('load', 'file://' + str(directory / 'missing.png'), 64, 64, COVER, directory / 'local-pixels')
         assert result['failed'] and 'local image' in result['error'], result
+        # Special files must neither block a direct request nor make warming
+        # occupy the fetch worker while a visible local cover waits behind it.
+        pipe = directory / 'not-a-cover.pipe'
+        os.mkfifo(pipe)
+        result = run('load', 'file://' + str(pipe), 64, 64, COVER, directory / 'local-pixels')
+        assert result['failed'] and 'local image' in result['error'], result
+        assert run('warm-local', 'file://' + str(pipe), 'file://' + str(directory / 'обложка с пробелом.png')) == {'ready': True}
         assert len(Handler.requests) == before
         for uri in ['file:///data/homebrew/covers/1.jpg', origin + '/photo.jpg']:
             assert run('validate', uri) == {'valid': True}
         for uri in ['file://relative/image.png', 'file://localhost/image.png',
-                    'file:///', 'file:///a\x00b', 'file:///a\nb', 'http://', 'file:///' + 'x' * 8192]:
-            # Embedded NULs cannot be passed through argv; the shared native
-            # policy is also exercised by the bridge's explicit length check.
-            if '\x00' in uri:
-                continue
+                    'file:///', 'file:///a\nb', 'http://', 'file:///' + 'x' * 8192]:
             assert run('validate', uri) == {'valid': False}, uri
         # Cover crops to the box's aspect ratio, then shrinks to the box with a box filter.
         result, image = load("/photo.png", 300, 300, COVER)

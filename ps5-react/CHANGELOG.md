@@ -6,6 +6,9 @@
   loader in both the React component and native bridge, including prewarming.
 - Bound local encoded files to the same 4 MiB limit as network responses and
   report missing or oversized files without passing them to the HTTP transport.
+- Skip automatic warming of local files already on disk, and reject special
+  files before opening them, so cover loading cannot block behind a full-library
+  reread or a pipe.
 - Preserve the session lifecycle and existing user download checkpoints.
 - Increase the bounded torrent profile to 128 peer connections, four disk I/O
   workers and an 8 MiB pending-write queue; explicitly retain unlimited download
