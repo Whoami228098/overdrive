@@ -24,6 +24,9 @@ The listener is `0.0.0.0:6881`; the startup log prints the effective mode before
 constructing the session. Ordinary builds can also opt in with the runtime
 environment variable `TORRENT_MINIMAL=1`. A forced minimal build cannot be turned
 back to full mode by its runtime environment.
+Outgoing interfaces stay empty so the OS selects its route. Unlike the listener,
+the outgoing setting is a strict allowlist of actual local addresses/interfaces;
+`0.0.0.0` there rejects traffic from a real interface. Logs show `outgoing=system`.
 
 Minimal mode is for console startup diagnosis: magnets without working trackers
 may have no peer discovery. It does not prove DHT, hostname resolution or peer

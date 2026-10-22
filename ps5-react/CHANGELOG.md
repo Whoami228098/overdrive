@@ -16,6 +16,8 @@
   AddressSanitizer/UndefinedBehaviorSanitizer, payload checksums, resume/error
   cases, concurrent submission and timed lifecycle checks. It is host evidence,
   not a PS5 hardware test.
+- Let the OS choose outgoing torrent interfaces. The literal wildcard in the
+  outgoing-interface allowlist rejected traffic bound to actual local IPs.
 
 ## Unreleased — user game pages and torrent startup
 

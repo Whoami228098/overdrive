@@ -178,7 +178,9 @@ void run() noexcept {
 #endif
     lt::settings_pack settings;
     settings.set_str(lt::settings_pack::listen_interfaces, "0.0.0.0:6881");
-    settings.set_str(lt::settings_pack::outgoing_interfaces, "0.0.0.0");
+    // A wildcard belongs in listen_interfaces, not the strict outgoing IP
+    // allowlist: the latter rejects packets bound to a real local address.
+    settings.set_str(lt::settings_pack::outgoing_interfaces, "");
     settings.set_int(lt::settings_pack::max_retry_port_bind, minimal ? 0 : 8);
     settings.set_bool(lt::settings_pack::listen_system_port_fallback, false);
     settings.set_int(lt::settings_pack::max_metadata_size, 10 * 1024 * 1024);
@@ -195,7 +197,7 @@ void run() noexcept {
     if (minimal) settings.set_str(lt::settings_pack::dht_bootstrap_nodes, "");
     settings.set_int(lt::settings_pack::alert_mask,
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage);
-    trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881",
+    trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
     lt::session session(settings);
     trace("session ready worker");
