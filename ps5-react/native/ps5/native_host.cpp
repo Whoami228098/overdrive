@@ -445,16 +445,21 @@ bool run_proof() {
     });
     const bool network_ready = network::start();
     if (network_ready) ps5_react_start_images();
+    bool native_imports_ready = true;
 #if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+    native_imports_ready = ps5_react_audit_imports([](const char* line) { async_log::write("[PS5-REACT] %s", line); });
     torrent::set_logger([](const char* line) { async_log::write("[PS5-REACT] torrent %s", line); });
     if (!network_ready)
       async_log::write("[PS5-REACT] torrent startup skipped: native networking is not running");
-    else if (!ps5_react_audit_imports([](const char* line) { async_log::write("[PS5-REACT] %s", line); }))
+    else if (!native_imports_ready)
       async_log::write("[PS5-REACT] torrent startup refused: unresolved native imports");
     else if (!torrent::start())
       async_log::write("[PS5-REACT] torrent startup refused: %s", torrent::last_error());
 #endif
-    async_log::write("[PS5-REACT] sound=%d at %lldms", ps5_react_start_sound(), since_launch_ms());
+    if (native_imports_ready)
+      async_log::write("[PS5-REACT] sound=%d at %lldms", ps5_react_start_sound(), since_launch_ms());
+    else
+      async_log::write("[PS5-REACT] sound/music startup refused: unresolved native imports");
     ErRuntimeConfig config = {};
     config.screen_width = width; config.screen_height = height;
     config.screen_scale = 2;
