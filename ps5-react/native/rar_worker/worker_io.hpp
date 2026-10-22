@@ -5,12 +5,14 @@
 // input and output, the engine's path rule, SHA-256 and the writer thread that writes, hashes and syncs
 // every file. Free of UnRAR's headers, so the 7z extractor, which uses libarchive, includes it too.
 #pragma once
+#include "durable.hpp"
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
 #else
 #include <openssl/evp.h>
 #endif
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <condition_variable>
 #include <cstdint>
@@ -38,10 +40,29 @@ inline const char* const too_much_memory = "This archive needs more memory to ex
 inline constexpr size_t sha256_size = 32;
 
 inline std::mutex say_mutex;
-inline bool output_lost = false;
+inline std::atomic<bool> output_lost{false}, journal_failed{false};
+inline std::unique_ptr<durable_archive::Journal> journal;
+inline bool input_lost = false;
+
+inline bool persist(const std::string& destination, const std::string& identity, std::uint64_t limit) {
+  if (identity.empty()) return true; // Older stream-only callers keep their original contract.
+  const auto split = identity.find(' ');
+  if (split == std::string::npos) return false;
+  auto next = std::make_unique<durable_archive::Journal>();
+  if (!next->open(destination, identity.substr(0,split), limit, identity.substr(split+1))) return false;
+  journal = std::move(next);
+  return true;
+}
 
 inline void say(const std::string& line) {
   std::lock_guard lock(say_mutex);
+  if (journal) {
+    if (!journal->append(line)) journal_failed = true;
+    // The payload loader may retain a duplicate socket after the UI exits.
+    // Writing to that orphaned connection eventually blocks forever instead
+    // of producing EPIPE. Durable workers report exclusively to their file.
+    return;
+  }
   const std::string text = line + "\n";
   size_t done = 0;
   while (done < text.size() && !output_lost) {
@@ -72,14 +93,32 @@ inline bool read_line(std::string& line) {
   return false;
 }
 
-// True once the engine asked to stop or went away; checked a few times a second.
-inline bool stop_requested() {
-  pollfd input{STDIN_FILENO, POLLIN, 0};
-  if (poll(&input, 1, 0) > 0) {
-    std::string line;
-    if (!read_line(line) || line == "cancel") return true;
+inline bool decode_hex(const std::string& hex, std::string& out) {
+  if (hex.size() > 2048 || hex.size() % 2) return false;
+  for (std::size_t i = 0; i < hex.size(); i += 2) {
+    unsigned value = 0;
+    for (char c : hex.substr(i, 2)) {
+      const int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+      if (digit < 0) return false;
+      value = value * 16 + static_cast<unsigned>(digit);
+    }
+    if (!value) return false;
+    out += static_cast<char>(value);
   }
-  return output_lost;
+  return true;
+}
+
+// A durable worker outlives a disconnected UI. Only an explicit cancel file or
+// command stops it; reports and completion stay on disk for the next UI launch.
+inline bool stop_requested() {
+  if (journal_failed || (journal && journal->cancelled())) return true;
+  pollfd input{STDIN_FILENO, POLLIN, 0};
+  if (!input_lost && poll(&input, 1, 0) > 0) {
+    std::string line;
+    if (!read_line(line)) input_lost = true;
+    else if (line == "cancel") return true;
+  }
+  return !journal && (input_lost || output_lost.load());
 }
 
 // "a/./b" is "a/b", as the engine reads it.

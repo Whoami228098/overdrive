@@ -564,12 +564,23 @@ try { const {artifacts} = await task.done; console.log(artifacts); }
 finally { unsubscribe(); }
 ```
 
-`cancel()` requests cancellation. ZIP, TAR, 7z and RAR/RAR5 use libarchive in a
-worker thread. Supply ordered archive volumes; no full joined copy enters JS or
+`cancel()` requests cancellation. ZIP, TAR, 7z and RAR/RAR5 decode off the UI
+thread. On PS5 they use an independent payload worker with a retained journal;
+on the desktop the default decoder remains a local worker thread/process.
+Supply ordered archive volumes; no full joined copy enters JS or
 RAM. One extraction may run at a time. Source files are preserved. Output paths,
 links, entry counts and byte budgets are validated. Extraction publishes a staged
 directory only after successful reading and SHA-256 output receipts. A matching
-published directory is reverified; matching interrupted staging is restarted.
+published directory is reverified. On PS5, closing or relaunching the UI detaches
+from the payload without cancelling it. The next matching request follows its
+journal, checks its ownership and rehashes recovered completed files before
+publishing. Controller/worker locks and per-attempt generation tokens prevent
+two decoders from sharing staging or a delayed payload claiming a new attempt.
+A genuinely dead worker with a stale journal (at least 30 seconds) may decode
+again from the saved archive; its old partial output is preserved under a separate
+generation name. A live worker is never replaced. Interrupted staging from older
+stream-only payloads is preserved for inspection. The desktop's default path
+restarts its own interrupted staging after its child exits.
 Unowned destinations/staging are preserved. Image artifacts are flattened to the
 output root for ShadowMount scan depth; duplicate filenames fail without overwrite.
 

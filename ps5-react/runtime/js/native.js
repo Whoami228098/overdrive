@@ -524,7 +524,9 @@ export const Downloads = {
   get transportVersion() { return host().network.version(); },
 };
 
-/** Streaming archive extraction off-thread; source volumes are preserved on failure/cancel. */
+/** Streaming archive extraction off-thread; source volumes are preserved on failure/cancel.
+ * PS5 workers retain progress outside the UI process; the same request follows
+ * that worker after reopening instead of clearing its partial output. */
 export const Archives = Object.freeze({
   /** `stream: true` starts a RAR set while its later volumes still download: only the first must exist;
    * each next one is read once a file appears under its final name (write volumes elsewhere and rename). */

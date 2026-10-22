@@ -112,7 +112,8 @@ long archives::read_rar_worker(int stream, char* data, std::size_t size) {
   return count < 0 ? -1 : count;
 }
 void archives::cancel_rar_worker(int stream) { payload_loader::write(stream, "cancel\n", 7); }
-void archives::close_rar_worker(int stream) { payload_loader::close(stream); }
+void archives::close_rar_worker(int stream, bool) { payload_loader::close(stream); }
+bool archives::durable_workers() { return true; }
 
 namespace {
 // Startup steps log their time since main(), to show where launch time goes.

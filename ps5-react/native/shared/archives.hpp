@@ -15,7 +15,7 @@ struct Request { std::vector<std::string> sources; std::string destination, pass
 // While extracting, `phase` is "extracting" until every entry is decoded, then "finishing" while the files
 // are flushed and synced and the set is published. `synced` of `sync_total` files are on disk then, both 0
 // where the writer cannot tell (inline writes, the RAR worker). `total` is what the files unpack to, once
-// known before they are written (the RAR worker reads it from every volume's headers), else 0.
+// known before they are written (RAR volume headers or the decoded 7z header), else 0.
 struct Snapshot {
   std::uint32_t id = 0; std::string state = "queued", error, destination, phase;
   std::uint64_t written = 0, total = 0, entries = 0, synced = 0, sync_total = 0;
@@ -47,5 +47,8 @@ int start_rar_worker(const std::string& request, std::string& error);
 // Bytes of its output; 0 at its end, -1 when none came within about a quarter second or on an error.
 long read_rar_worker(int stream, char* data, std::size_t size);
 void cancel_rar_worker(int stream);
-void close_rar_worker(int stream);
+void close_rar_worker(int stream, bool keep_running = false);
+// PS5 payloads retain a journal and continue after the UI disconnects. The
+// desktop enables the same path with ARCHIVE_DURABLE=1 for restart tests.
+bool durable_workers();
 }

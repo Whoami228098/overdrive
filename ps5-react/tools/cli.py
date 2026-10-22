@@ -70,6 +70,8 @@ def desktop(app, test=False, target="ps5-react-preview", resolution=None):
         run(["python3", ROOT / "tools/test_js_heap.py"], log=ROOT / ".build/js-heap-test.log")
         run(["python3", ROOT / "tools/test_music.py"], log=ROOT / ".build/music-test.log")
         run(["python3", ROOT / "tools/test_archives.py"], log=ROOT / ".build/archive-test.log")
+        if sys.platform == "linux":
+            run(["python3", ROOT / "tools/test_durable_archives.py"], log=ROOT / ".build/durable-archive-test.log")
         run(["python3", ROOT / "tools/test_removals.py"], log=ROOT / ".build/removal-test.log")
         run(["python3", ROOT / "tools/test_network.py"], log=ROOT / ".build/network-test.log")
         run(["python3", ROOT / "tools/test_images.py"], log=ROOT / ".build/image-test.log")

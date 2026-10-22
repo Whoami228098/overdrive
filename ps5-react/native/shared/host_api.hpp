@@ -273,6 +273,8 @@ bool ps5_react_start_sound();
 void ps5_react_stop_sound();
 
 // ABI v5 additive archive tasks: extract(sources, destination, maxBytes, password?), inspect(sources), cancel(id), poll().
+// PS5 workers retain their journal across host closure; enqueue reattaches to
+// the same owned worker. No decoder work runs in this synchronous bridge.
 JSValue ps5_react_archive_api(JSContext* ctx);
 JSValue ps5_react_inspection_api(JSContext* ctx);
 // ABI v5 additive package installs: install(path, name), cancel(id), poll().

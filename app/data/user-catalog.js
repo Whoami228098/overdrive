@@ -51,23 +51,55 @@ function hostName(url) {
 // best first), or an object { source, mirrors: [...] }.
 function collectSources(entry) {
   const raw = [];
-  if (typeof entry.source === 'string') raw.push(entry.source);
-  else if (entry.source && typeof entry.source === 'object' && entry.source.url) raw.push(entry.source.url);
-  else if (entry.url) raw.push(entry.url);
+  if (typeof entry.source === 'string') raw.push({url:entry.source});
+  else if (entry.source && typeof entry.source === 'object' && entry.source.url) raw.push(entry.source);
+  else if (entry.url) raw.push({url:entry.url});
   if (Array.isArray(entry.mirrors)) {
     for (const mirror of entry.mirrors) {
       const url = typeof mirror === 'string' ? mirror : mirror?.url || mirror?.source;
-      if (url) raw.push(url);
+      if (url) raw.push(typeof mirror === 'string' ? {url} : {...mirror,url});
     }
   }
   const seen = new Set();
   const out = [];
-  for (const value of raw) {
+  for (const descriptor of raw) {
+    const value = descriptor.url;
     if (typeof value !== 'string' || !value.trim() || seen.has(value)) continue;
     seen.add(value);
-    out.push(value.trim());
+    out.push({...descriptor,url:value.trim()});
   }
   return out;
+}
+
+function archiveMetadata(entry, descriptor) {
+  const fields = {};
+  if (PLATFORMS.has(entry.platform)) fields.platform = entry.platform;
+  const archiveFile = descriptor.archiveFile ?? entry.archiveFile;
+  if (typeof archiveFile === 'string' && archiveFile.length <= 4096 && !/[\x00-\x1f\\]/.test(archiveFile) &&
+      !archiveFile.startsWith('/') && !archiveFile.split('/').some(part=>part==='..'||part==='')) fields.archiveFile = archiveFile;
+  const value = Object.prototype.hasOwnProperty.call(descriptor,'archivePassword') ? descriptor.archivePassword : entry.archivePassword;
+  if (value != null && value !== '') {
+    let bytes = 0;
+    if (typeof value === 'string') for (const character of value) {
+      const code = character.codePointAt(0);
+      bytes += code < 128 ? 1 : code < 2048 ? 2 : code < 65536 ? 3 : 4;
+    }
+    if (typeof value !== 'string' || value.includes('\0') || bytes > 1024)
+      fields.unavailableReason = 'This release has invalid archive password metadata. Correct its catalog entry before downloading.';
+    else fields.archivePassword = value;
+  }
+  const metadata = descriptor.archiveMetadata ?? entry.archiveMetadata;
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    fields.archiveMetadata = {
+      kind: typeof metadata.kind === 'string' ? metadata.kind.slice(0,64) : 'unknown',
+      passwordStatus: typeof metadata.passwordStatus === 'string' ? metadata.passwordStatus.slice(0,64) : 'unknown',
+      encryption: ['none','unknown','encrypted'].includes(metadata.encryption) ? metadata.encryption : 'unknown',
+      unpackedSizeBytes: Number.isSafeInteger(metadata.unpackedSizeBytes) && metadata.unpackedSizeBytes > 0 && metadata.unpackedSizeBytes <= 1024**4 ? metadata.unpackedSizeBytes : null
+    };
+  }
+  const topic = descriptor.topic_url ?? entry.topic_url;
+  if (typeof topic === 'string' && /^https:\/\/rutracker\.org\/forum\/viewtopic\.php\?t=\d+$/.test(topic)) fields.topicUrl = topic;
+  return fields;
 }
 
 function guessFormat(url) {
@@ -80,7 +112,9 @@ function guessFormat(url) {
 
 // A release the store's SourcePicker and download queue already understand:
 // a direct HTTP file (pkg / ffpkg / exfat / ffpfsc) or an archive set (parts).
-function buildRelease(entry, source, index) {
+function buildRelease(entry, descriptor, index) {
+  const source = descriptor.url;
+  const metadata = archiveMetadata(entry, descriptor);
   const isMagnet = /^magnet:\?/i.test(source);
   if (isMagnet) {
     if (!ALLOW_MAGNETS || !Torrent.available) return null;
@@ -88,6 +122,7 @@ function buildRelease(entry, source, index) {
     try { key = torrentKey(source); } catch { return null; }
     const sizeBytes = entry.size_gb ? Math.round(Number(entry.size_gb) * 1e9) : 0;
     return {
+      ...metadata,
       id: hashId(key), type: 'torrent', format: 'torrent', source: 'user',
       label: [entry.region, entry.version].filter(Boolean).join(' · ') || 'Torrent',
       provider: 'BitTorrent', health: 'ok', version: entry.version || null,
@@ -104,6 +139,7 @@ function buildRelease(entry, source, index) {
   // queue downloads in order and then extracts; anything else is one file.
   if (format === 'archive-set') {
     return {
+      ...metadata,
       label, provider, format, version: entry.version || null,
       sizeBytes, health: 'ok', source: 'user',
       filename: String(entry.id || 'user-set'),
@@ -111,6 +147,7 @@ function buildRelease(entry, source, index) {
     };
   }
   return {
+    ...metadata,
     label, provider, format, version: entry.version || null,
     sizeBytes, health: 'ok', source: 'user',
     url: source
@@ -134,7 +171,7 @@ function toGame(entry, catalogDir) {
   if (!sources.length) return null;
   const releases = [];
   sources.forEach((source, index) => {
-    const release = buildRelease({ ...entry, id: hashId(title + platform) }, source, index);
+    const release = buildRelease({ ...entry, platform, id: hashId(title + platform) }, source, index);
     if (release) releases.push(release);
   });
   const magnetOnly = releases.length === 0;

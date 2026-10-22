@@ -39,9 +39,10 @@ constexpr std::uint64_t page = 4096;
 constexpr size_t read_block = 1 << 20;
 
 struct Options {
-  std::uint64_t memory = 0, limit = 0;
+  std::uint64_t memory = 0, limit = 0, declared = 0;
   std::vector<std::string> flatten, sources;
-  std::string reserved, destination;
+  std::string reserved, destination, journal_identity, password;
+  bool general = false;
 };
 
 bool cancelled = false;  // Only the decoding thread reads and sets it.
@@ -54,9 +55,12 @@ bool read_options(Options& options) {
     if (key == "end") return !options.destination.empty() && !options.sources.empty() && options.limit && options.memory;
     if (key == "memory") options.memory = strtoull(value.c_str(), nullptr, 10);
     else if (key == "limit") options.limit = strtoull(value.c_str(), nullptr, 10);
+    else if (key == "declared") options.declared = strtoull(value.c_str(), nullptr, 10);
     else if (key == "flatten") options.flatten.push_back(value);
     else if (key == "reserved") options.reserved = value;
     else if (key == "dest") options.destination = value;
+    else if (key == "journal") options.journal_identity = value;
+    else if (key == "password" && !decode_hex(value, options.password)) return false;
     else if (key == "source") options.sources.push_back(value);
   }
   return false;
@@ -94,7 +98,17 @@ std::string archive_failure(archive* reader, const char* fallback) {
 std::string extract(const Options& options, Writer& writer, Progress& progress) {
   archive* reader = archive_read_new();
   if (!reader) return too_much_memory;
+  if (options.general) {
+    archive_read_support_filter_all(reader);
+    archive_read_support_format_zip(reader);
+    archive_read_support_format_tar(reader);
+  }
   archive_read_support_format_7zip(reader);
+  if (!options.password.empty() && archive_read_add_passphrase(reader, options.password.c_str()) != ARCHIVE_OK) {
+    const auto error = archive_failure(reader, "Cannot configure archive password.");
+    archive_read_free(reader);
+    return error;
+  }
   std::vector<const char*> files;
   for (const auto& path : options.sources) files.push_back(path.c_str());
   files.push_back(nullptr);
@@ -177,15 +191,21 @@ std::string extract(const Options& options, Writer& writer, Progress& progress) 
 }
 }
 
-int run() {
+int run(bool general) {
   // Directories and files stay usable by the app, which may run as another user than this program.
   umask(0);
   Options options;
+  options.general = general;
   if (!read_options(options)) {
     say("fail Invalid 7z worker request.");
     return 1;
   }
+  if (!persist(options.destination, options.journal_identity, options.limit)) {
+    say("fail Cannot claim persistent extraction journal; files preserved.");
+    return 1;
+  }
   say("ready");
+  if (options.declared) say("d " + std::to_string(options.declared));
   // "k" every second says this process is alive while the claim, a long fsync or a slow block holds it.
   std::mutex alive_mutex;
   std::condition_variable alive_wake;
@@ -204,7 +224,7 @@ int run() {
     Progress progress;
     std::unique_ptr<Writer> writer;
     try {
-      error = claim(options.memory + overhead, claim_took);
+      error = options.declared > options.limit ? too_large : claim(options.memory + overhead, claim_took);
       if (error.empty()) {
         writer = std::make_unique<Writer>();
         error = extract(options, *writer, progress);

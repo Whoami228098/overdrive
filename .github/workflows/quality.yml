@@ -72,8 +72,10 @@ jobs:
             find ps5-react/.build -maxdepth 1 -name '*test.log' -print -exec cat {} \;
           fi
           exit "$status"
-      - name: Check music and compatible mod workflows
-        run: node --test app/music/controller.test.mjs app/mods/core.test.mjs | tee quality-evidence/music-mods-tests.log
+      - name: Check store state, music and compatible mod workflows
+        run: |
+          set -o pipefail
+          node --test app/music/controller.test.mjs app/mods/core.test.mjs app/data/user-catalog.test.mjs app/state/*.test.mjs | tee quality-evidence/music-mods-tests.log
       - name: Render the real store with owned audio and mod fixtures
         if: ${{ inputs.preview_only }}
         env:

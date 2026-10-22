@@ -1,5 +1,16 @@
 # Changelog
 
+## TRAPSTARSHOP 1.0.20 — archive recovery
+
+- Keep PS5 extraction in an independent payload with durable progress, process
+  leases and per-attempt ownership. Closing the UI no longer restarts decoding.
+- Reattach saved extractions without re-adding their torrent. Verify completed
+  output hashes and retain downloaded archives on error or cancellation.
+- Report exact expanded 7z sizes, preserve release-specific published passwords,
+  order multi-volume archives, and distinguish a base game from DLC and overlays.
+- Qualify real worker exit/crash recovery with sanitizers and retained-file checks.
+  Hardware qualification is recorded separately for each produced artifact.
+
 ## Unreleased — local music
 
 - Add an opt-in `Music` module for bounded local MP3 streaming on a worker,
