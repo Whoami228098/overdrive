@@ -5,6 +5,19 @@ name: build
 # very files that were tested.
 on:
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact source commit to reproduce (empty uses this branch)
+        required: false
+        default: ''
+      torrent_minimal:
+        description: Disable DHT, LSD, NAT discovery and bootstrap for diagnosis
+        type: boolean
+        default: false
+      diagnostic_only:
+        description: Save symbols without updating draft releases or building PS4
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -15,6 +28,8 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
 
       - name: Install the toolchain
         run: |
@@ -53,7 +68,34 @@ jobs:
 
       - name: Build
         working-directory: ps5-react
+        env:
+          TORRENT_MINIMAL: ${{ inputs.torrent_minimal && '1' || '0' }}
         run: python3 tools/build_ps5.py --app-dir "$GITHUB_WORKSPACE/app" --llvm /usr/bin
+
+      - name: Save symbols and native diagnostics
+        if: always()
+        run: |
+          mkdir -p native-diagnostics
+          git rev-parse HEAD > native-diagnostics/source-commit.txt
+          printf 'TORRENT_MINIMAL=%s\n' '${{ inputs.torrent_minimal && '1' || '0' }}' > native-diagnostics/mode.txt
+          build=ps5-react/.build/overdrive/ps5
+          if [ -f "$build/llvm-pie.elf" ]; then
+            cp "$build/llvm-pie.elf" native-diagnostics/
+            llvm-nm-18 --numeric-sort --print-size --demangle "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.symbols.txt
+            llvm-readelf-18 --dyn-syms --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.dyn-syms.txt
+            llvm-readelf-18 --relocations --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.relocations.txt
+          fi
+          for file in eboot.elf link.log torrent-queue-tests.log native-network-tests.log; do
+            if [ -f "$build/$file" ]; then cp "$build/$file" native-diagnostics/; fi
+          done
+
+      - name: Upload native diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-diagnostics
+          path: native-diagnostics/
+          if-no-files-found: error
 
       - name: Package
         run: |
@@ -79,7 +121,7 @@ jobs:
         # (releases/latest) never returns one, so a test build reaches nobody else.
         # The draft is named after app/version.js; building again replaces its files
         # and moves it to this commit. A version already published is left alone.
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && !inputs.diagnostic_only
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -104,6 +146,7 @@ jobs:
             --jq '"\(.tagName) draft=\(.isDraft) " + ([.assets[] | "\(.name) \(.size)"] | join(", "))'
 
   ps4:
+    if: ${{ !inputs.diagnostic_only }}
     needs: ps5
     runs-on: ubuntu-24.04
     timeout-minutes: 60
