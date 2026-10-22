@@ -27,6 +27,8 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --disable-pip-version-check -r ps5-react/requirements.txt
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - name: Install pinned framework JavaScript dependencies
+        run: npm ci --prefix ps5-react
       - name: Cache pinned dependency sources
         uses: actions/cache@v4
         with:
