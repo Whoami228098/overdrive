@@ -64,6 +64,11 @@ capacity, concurrent calls and shutdown/restart. The artifact records source
 hashes, elapsed monotonic time, memory/descriptors and API latency. System OpenSSL
 is a host dependency; this test does not execute the PS5 ELF or validate PS5
 imports, firmware or DHT.
+Short smoke runs repeat the loopback transfer 12 times and verify that late
+pause/resume commands cannot resurrect a removed task. Removed handles ignore
+older metadata/checkpoint alerts; only removal completion or deletion failure
+may update them. Metadata acceptance and the first four peer errors per task
+are recorded in the native log.
 Before a new workflow is present on the default branch, the existing `build`
 workflow can call it with `host_soak_minutes` set to `0` or `90`; console build
 and release jobs are skipped in that mode.

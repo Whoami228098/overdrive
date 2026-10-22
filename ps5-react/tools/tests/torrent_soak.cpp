@@ -8,6 +8,7 @@
 #include <libtorrent/bencode.hpp>
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/peer_class.hpp>
+#include <libtorrent/alert_types.hpp>
 #include <openssl/sha.h>
 #include <algorithm>
 #include <atomic>
@@ -36,6 +37,8 @@ using namespace std::chrono_literals;
 std::atomic<long long> heartbeat{0}, calls{0}, longest_call_us{0};
 std::atomic<unsigned> starts{0}, ready{0}, stops{0}, accepted{0}, expected_failures{0};
 std::atomic<bool> done{false}, wrong_thread{false};
+std::atomic<unsigned> invalid_handles{0};
+std::function<void(bool)> network_diagnostics;
 std::thread::id main_thread;
 std::mutex log_mutex;
 std::deque<std::string> recent_logs;
@@ -53,6 +56,7 @@ void log_native(const char* line) {
   if (std::strstr(line, "session stopped worker")) ++stops;
   if (std::strstr(line, "add_magnet accepted worker")) ++accepted;
   if (std::strstr(line, "task failed id=")) ++expected_failures;
+  if (std::strstr(line, "invalid torrent handle")) ++invalid_handles;
   std::lock_guard<std::mutex> lock(log_mutex);
   recent_logs.emplace_back(line);
   if (recent_logs.size() > 128) recent_logs.pop_front();
@@ -72,9 +76,11 @@ void wait_for(const std::function<bool()>& condition, const char* label, std::ch
   const auto deadline = Clock::now() + timeout;
   while (Clock::now() < deadline) {
     beat();
+    if (network_diagnostics) network_diagnostics(false);
     if (condition()) return;
     std::this_thread::sleep_for(20ms);
   }
+  if (network_diagnostics) network_diagnostics(true);
   throw std::runtime_error(std::string("Timeout: ") + label + "; last native error: " + torrent::last_error());
 }
 torrent::Status status(int id) {
@@ -84,12 +90,19 @@ torrent::Status status(int id) {
   throw std::runtime_error("Task is absent from poll: " + std::to_string(id));
 }
 void state(int id, int value, const char* label, std::chrono::seconds timeout = 30s) {
-  wait_for([&] {
+  try { wait_for([&] {
     const auto current = status(id).state;
     if (current == torrent::failed && value != torrent::failed && value != torrent::removed)
       throw std::runtime_error(torrent::error(id));
     return current == value;
-  }, label, timeout);
+  }, label, timeout); }
+  catch (const std::exception& error) {
+    const auto current = status(id);
+    throw std::runtime_error(std::string(error.what()) + " id=" + std::to_string(id) +
+      " state=" + std::to_string(current.state) + " progress=" + std::to_string(current.progress) +
+      " done=" + std::to_string(current.done) + " peers=" + std::to_string(current.peers) +
+      " task_error=" + torrent::error(id));
+  }
 }
 void start(const fs::path& root) {
   const auto previous = ready.load();
@@ -202,6 +215,9 @@ int main(int argc, char** argv) {
     settings.set_str(lt::settings_pack::dht_bootstrap_nodes, "");
     settings.set_bool(lt::settings_pack::enable_dht, false); settings.set_bool(lt::settings_pack::enable_lsd, false);
     settings.set_bool(lt::settings_pack::enable_upnp, false); settings.set_bool(lt::settings_pack::enable_natpmp, false);
+    settings.set_bool(lt::settings_pack::allow_multiple_connections_per_ip, true);
+    settings.set_int(lt::settings_pack::min_reconnect_time, 1);
+    settings.set_int(lt::settings_pack::alert_mask, lt::alert_category::error | lt::alert_category::connect | lt::alert_category::status);
     settings.set_int(lt::settings_pack::upload_rate_limit, 65536);
     lt::session seeder(settings);
     // Local peers bypass the global rate class by default. Limit their own
@@ -212,7 +228,16 @@ int main(int argc, char** argv) {
     wait_for([&] { return seeder.listen_port() != 0; }, "loopback seed listener");
     lt::add_torrent_params params; params.ti = info; params.save_path = seed_path.string();
     params.flags &= ~(lt::torrent_flags::paused | lt::torrent_flags::auto_managed); params.flags |= lt::torrent_flags::seed_mode;
-    seeder.add_torrent(params);
+    const auto seed_handle = seeder.add_torrent(params);
+    std::deque<std::string> seed_logs;
+    network_diagnostics = [&](bool dump) {
+      std::vector<lt::alert*> alerts; seeder.pop_alerts(&alerts);
+      for (const auto* alert : alerts) { seed_logs.push_back(alert->message()); if (seed_logs.size() > 64) seed_logs.pop_front(); }
+      if (!dump) return;
+      const auto current = seed_handle.status();
+      std::cerr << "SEED state=" << current.state << " peers=" << current.num_peers << " error=" << current.errc.message() << '\n';
+      for (const auto& line : seed_logs) std::cerr << "SEED " << line << '\n';
+    };
     const auto magnet = lt::make_magnet_uri(*info) + "&x.pe=127.0.0.1:" + std::to_string(seeder.listen_port());
     const auto root = sandbox / "app";
     start(root); check(api([&] { return torrent::start(); }), "idempotent start failed");
@@ -253,6 +278,12 @@ int main(int argc, char** argv) {
     check(!api([&] { return torrent::add_magnet(unknown(33).c_str(), "over capacity", 1); }), "queue exceeded 32 jobs");
     for (int item : capacity) remove(item, false);
     concurrency(root);
+    check(invalid_handles == 0, "stale alerts used a detached torrent handle");
+    const int terminal = add(unknown(50000), root);
+    torrent::pause(terminal); torrent::remove(terminal, false); torrent::resume(terminal); torrent::pause(terminal);
+    state(terminal, torrent::removed, "remove wins over pending controls");
+    torrent::resume(terminal); std::this_thread::sleep_for(200ms);
+    check(status(terminal).state == torrent::removed, "resume resurrected a removed task");
     std::cout << "SMOKE cases passed; timed soak begins" << std::endl;
     const auto from = Clock::now(); auto report = from;
     const auto duration = std::chrono::minutes(minutes);
@@ -271,11 +302,12 @@ int main(int argc, char** argv) {
       if (minutes && elapsed > duration * 2 / 3 && cycles % 5 == 0) { stop(); start(root); concurrency(root); }
       if (Clock::now() - report >= 60s) { metrics(std::chrono::duration<double>(Clock::now() - from).count()); report = Clock::now(); }
       if (minutes && elapsed < duration) for (int n = 0; n < 10; ++n) { beat(); std::this_thread::sleep_for(100ms); }
-    } while (Clock::now() - from < duration);
+    } while (Clock::now() - from < duration || cycles < (minutes ? 1u : 12u));
     stop();
     check(starts == ready && starts == stops, "worker lifecycle counts differ");
     check(longest_call_us < 2'000'000, "native submit/poll call blocked for over 2 seconds");
     check(!wrong_thread, "worker ran on caller");
+    check(invalid_handles == 0, "removal emitted invalid-handle errors");
     metrics(std::chrono::duration<double>(Clock::now() - from).count(), true);
     std::cout << "PASS native host soak; PS5 execution is not established by this test" << std::endl;
   } catch (const std::exception& error) {
@@ -283,6 +315,7 @@ int main(int argc, char** argv) {
     { std::lock_guard<std::mutex> lock(log_mutex); for (const auto& line : recent_logs) std::cerr << line << '\n'; }
     torrent::stop(); result = 1;
   }
+  network_diagnostics = {};
   torrent::set_logger(nullptr); done = true; watchdog.join();
   return result;
 }

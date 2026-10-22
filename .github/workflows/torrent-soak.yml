@@ -54,8 +54,11 @@ jobs:
             ps5-react/.build/torrent-soak/build
             ps5-react/.build/torrent-soak/project
             ps5-react/.build/torrent-soak/exact-native-source
+            ps5-react/.deps/torrent-ps5
           key: host-soak-linux-clang18-v1-${{ inputs.source_ref }}-${{ hashFiles('ps5-react/tools/torrent_soak.py', 'ps5-react/tools/tests/torrent_soak.cpp', 'ps5-react/native/ps5/torrent/dependencies.lock.json') }}
-          restore-keys: host-soak-linux-clang18-v1-${{ inputs.source_ref }}-
+          restore-keys: |
+            host-soak-linux-clang18-v1-${{ inputs.source_ref }}-
+            host-soak-linux-clang18-v1-
       - name: Build and run sanitizer loopback soak
         env:
           SOAK_SOURCE_REF: ${{ inputs.source_ref }}
@@ -83,4 +86,5 @@ jobs:
             ps5-react/.build/torrent-soak/build
             ps5-react/.build/torrent-soak/project
             ps5-react/.build/torrent-soak/exact-native-source
+            ps5-react/.deps/torrent-ps5
           key: ${{ steps.host-cache.outputs.cache-primary-key }}

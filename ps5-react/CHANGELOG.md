@@ -18,6 +18,9 @@
   not a PS5 hardware test.
 - Let the OS choose outgoing torrent interfaces. The literal wildcard in the
   outgoing-interface allowlist rejected traffic bound to actual local IPs.
+- Make task removal terminal for queued pause/resume calls and duplicate
+  submissions. Ignore stale alerts for a detached handle while awaiting its
+  removal acknowledgement; log metadata acceptance and bounded peer errors.
 
 ## Unreleased — user game pages and torrent startup
 

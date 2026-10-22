@@ -35,7 +35,7 @@ namespace {
 namespace lt = libtorrent;
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-struct Entry { Status status; std::string error; std::shared_ptr<const std::vector<File>> files; std::string uri, root, destination; };
+struct Entry { Status status; std::string error; std::shared_ptr<const std::vector<File>> files; std::string uri, root, destination; bool retiring = false; };
 enum class Op { add, pause, resume, remove };
 struct Command { Op op; int id; bool delete_files = false; };
 struct Job {
@@ -46,6 +46,7 @@ struct Job {
   bool paused_ack = false, flush_save = false, saved_after_pause = false, removing = false;
   bool checkpoint_failed = false;
   bool metadata_checked = false;
+  unsigned connection_logs = 0;
   Clock::time_point saved = Clock::now();
 };
 std::mutex mutex;
@@ -85,6 +86,7 @@ void fail(int id, const std::string& message) {
     found->second.status.state = failed;
     found->second.status.rate_down = found->second.status.rate_up = 0;
     found->second.error = message;
+    found->second.retiring = false;
   }
 }
 std::string hash_key(const lt::info_hash_t& hashes) {
@@ -157,12 +159,15 @@ void inspect(Job& job) {
     files.push_back({(base / relative).string(), storage.file_size(index)});
   }
   if (files.empty() || storage.total_size() <= 0) throw std::runtime_error("Torrent contains no payload files.");
+  const auto file_count = static_cast<unsigned>(files.size());
   auto snapshot = std::make_shared<const std::vector<File>>(std::move(files));
   {
     std::lock_guard<std::mutex> lock(mutex);
     entries.at(job.id).files = std::move(snapshot);
     job.metadata_checked = true;
   }
+  trace("metadata accepted worker id=%d files=%u bytes=%lld", job.id,
+    file_count, static_cast<long long>(storage.total_size()));
   job.handle.unset_flags(lt::torrent_flags::upload_mode);
 }
 void run() noexcept {
@@ -196,7 +201,7 @@ void run() noexcept {
     settings.set_bool(lt::settings_pack::enable_lsd, !minimal);
     if (minimal) settings.set_str(lt::settings_pack::dht_bootstrap_nodes, "");
     settings.set_int(lt::settings_pack::alert_mask,
-      lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage);
+      lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::connect);
     trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
     lt::session session(settings);
@@ -213,6 +218,13 @@ void run() noexcept {
       }
       for (const auto& command : pending) {
         try {
+          if (command.op == Op::pause || command.op == Op::resume) {
+            std::lock_guard<std::mutex> lock(mutex);
+            const auto found = entries.find(command.id);
+            if (found == entries.end()) continue;
+            const auto& entry = found->second;
+            if (entry.retiring || entry.status.state == removed) continue;
+          }
           if (command.op == Op::add || (command.op == Op::resume && !jobs.count(command.id))) {
             trace("add_magnet begin worker id=%d", command.id);
             std::string uri, save_root;
@@ -312,6 +324,11 @@ void run() noexcept {
         const auto found = std::find_if(jobs.begin(), jobs.end(), [&](const auto& item) { return item.second.handle == torrent_alert->handle; });
         if (found == jobs.end()) continue;
         Job& job = found->second;
+        // A removed handle may still have older pause/resume/metadata alerts in
+        // this batch. Only its removal acknowledgement can now change the job.
+        if (job.removing && !lt::alert_cast<lt::torrent_deleted_alert>(alert) &&
+            !lt::alert_cast<lt::torrent_removed_alert>(alert) &&
+            !lt::alert_cast<lt::torrent_delete_failed_alert>(alert)) continue;
         try {
           if (const auto* saved = lt::alert_cast<lt::save_resume_data_alert>(alert)) {
             try { store_resume(job.resume_path, lt::write_resume_data_buf(saved->params)); }
@@ -339,7 +356,9 @@ void run() noexcept {
             fail(job.id, failure->error.message());
             job.handle.pause();
           } else if (lt::alert_cast<lt::metadata_received_alert>(alert)) {
-            inspect(job);
+            if (!job.metadata_checked) inspect(job);
+          } else if (lt::alert_cast<lt::peer_error_alert>(alert) || lt::alert_cast<lt::peer_disconnected_alert>(alert)) {
+            if (job.connection_logs++ < 4) trace("peer event worker id=%d %s", job.id, alert->message().c_str());
           }
         } catch (const std::exception& error) { fail(job.id, error.what()); if (job.handle.is_valid()) job.handle.pause(); }
       }
@@ -404,9 +423,12 @@ void run() noexcept {
 void command(Op op, int id, bool delete_files = false) {
   std::lock_guard<std::mutex> lock(mutex);
   if (!entries.count(id)) { latest_error = "Unknown torrent task."; return; }
+  auto& entry = entries.at(id);
+  if (entry.status.state == removed || entry.retiring) return;
   if (!running && op == Op::remove && !delete_files) { entries.at(id).status.state = removed; return; }
   if (!running) { latest_error = "Torrent session is stopped."; return; }
   if (commands.size() >= 128) { latest_error = "Torrent command queue is full."; return; }
+  if (op == Op::remove) entry.retiring = true;
   commands.push_back({op, id, delete_files}); wake.notify_one();
 }
 } // namespace
@@ -442,6 +464,7 @@ int add_magnet(const char* uri, const char* name, long long size_hint, const cha
     latest_error = "Invalid magnet URI or size hint."; return 0;
   }
   for (auto& item : entries) if (item.second.uri == uri && item.second.root == job_root && item.second.status.state != removed) {
+    if (item.second.retiring) { latest_error = "Torrent is being removed."; return 0; }
     if (item.second.status.state == paused || item.second.status.state == failed) {
       if (commands.size() >= 128) { latest_error = "Torrent command queue is full."; return 0; }
       commands.push_back({Op::resume, item.first}); wake.notify_one();
