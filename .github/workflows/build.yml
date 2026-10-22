@@ -78,7 +78,7 @@ jobs:
           mkdir -p native-diagnostics
           git rev-parse HEAD > native-diagnostics/source-commit.txt
           printf 'TORRENT_MINIMAL=%s\n' '${{ inputs.torrent_minimal && '1' || '0' }}' > native-diagnostics/mode.txt
-          build=ps5-react/.build/overdrive/ps5
+          build=ps5-react/.build/app/ps5
           if [ -f "$build/llvm-pie.elf" ]; then
             cp "$build/llvm-pie.elf" native-diagnostics/
             llvm-nm-18 --numeric-sort --print-size --demangle "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.symbols.txt
