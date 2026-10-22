@@ -279,6 +279,15 @@ export const Sound = {
   setVolume: volume => host().sound.setVolume(volume),
 };
 
+/** Local MP3 playback. Requires `music: true`; decoding and file reads run on one worker. */
+export const Music = {
+  play: path => host().music.play(path),
+  getStatus: () => host().music.getStatus(),
+  setPaused: paused => host().music.setPaused(!!paused),
+  setVolume: volume => host().music.setVolume(volume),
+  stop: () => host().music.stop(),
+};
+
 export const Linking = {
   /** Opens an http(s) URL in the system browser. @param {string} url @returns {boolean} */
   openURL(url) {

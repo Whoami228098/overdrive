@@ -140,6 +140,11 @@
       },
       "description": "Scripts whose subset Noto font is packaged in fonts/ and shaped and rasterized at runtime when text needs it: chinese (GB 2312), chinese-traditional (Big5 level 1), japanese (JIS X 0208), devanagari (Hindi), bengali, arabic (Arabic and Urdu). See docs/TEXT.md."
     },
+    "music": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable bounded local MP3 streaming through the Music native module."
+    },
     "video": {
       "type": "boolean",
       "default": false,

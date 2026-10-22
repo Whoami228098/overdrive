@@ -132,6 +132,7 @@ def main():
         log=BUILD / "native-network-tests.log")
     run(["python3", ROOT / "tools/test_native_imports.py"], log=BUILD / "native-import-tests.log")
     run(["python3", ROOT / "tools/test_js_heap.py"], log=BUILD / "js-heap-tests.log")
+    run(["python3", ROOT / "tools/test_music.py"], log=BUILD / "music-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
     torrent_spec = importlib.util.spec_from_file_location("overdrive_torrent_build", ROOT / "native/ps5/torrent_build.py")
@@ -187,7 +188,7 @@ def main():
                ROOT / "native/shared/host_api.cpp", ROOT / "native/shared/removals.cpp", ROOT / "native/shared/network.cpp",
                ROOT / "native/shared/network_api.cpp", ROOT / "native/shared/archives.cpp", ROOT / "native/shared/archive_preflight.cpp", ROOT / "native/shared/rar5_password.cpp", ROOT / "native/shared/archive_writer.cpp", ROOT / "native/shared/archive_api.cpp", ROOT / "native/shared/browser_capture_api.cpp", ROOT / "native/shared/lan.cpp", ROOT / "native/shared/lan_api.cpp", ROOT / "native/ps5/browser_capture.cpp", ROOT / "native/shared/package_api.cpp", ROOT / "native/ps5/package_installer.cpp", ROOT / "native/ps5/payload_loader.cpp", ROOT / "native/ps5/relaunch.cpp", ROOT / "native/ps5/crash_log.cpp", ROOT / "native/ps5/utf8_locale.cpp", ROOT / "native/ps5/network_platform.cpp",
                ROOT / "native/shared/image_loader.cpp", ROOT / "native/shared/image_api.cpp",
-               ROOT / "native/shared/sound_api.cpp", layout_dirs[0] / "sounds.generated.c",
+               ROOT / "native/shared/sound_api.cpp", ROOT / "native/shared/music_player.cpp", layout_dirs[0] / "sounds.generated.c",
                ROOT / "native/shared/audio_sink.cpp", ROOT / "native/shared/audio_output_api.cpp", ROOT / "native/ps5/bitstream_output.cpp",
                ROOT / "native/shared/gl_presenter.cpp", ROOT / "native/shared/gl_video.cpp", ROOT / "native/shared/gl_upscale.cpp", ROOT / "native/shared/video_api.cpp",
                ROOT / "native/shared/frame_stats.cpp", ROOT / "native/shared/js_heap.cpp", ROOT / "native/shared/js_profiler.cpp", ROOT / "native/shared/damage_tracker.cpp", ROOT / "native/shared/render_workers.cpp", ROOT / "native/shared/input_script.cpp", ROOT / "native/shared/screenshot.cpp", ROOT / "native/shared/text_shaper.cpp", *layout_assets,

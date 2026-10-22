@@ -1,7 +1,7 @@
 // Copyright (C) 2026 half144 and PS5 React contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
-// Native API contract (ABI v19) between the hosts and `@ps5-react/core`. The input actions hosts
+// Native API contract (ABI v20) between the hosts and `@ps5-react/core`. The input actions hosts
 // pass to `__ps5ReactDispatch` are a separate contract with its own version (runtime/js/input.js).
 //
 // host_api.cpp (shared) installs `globalThis.__ps5ReactNative` through
@@ -101,6 +101,9 @@
 //   sound.play(name, volume, pan)  ABI v5; boolean; posts an imported WAV to the mixer (volume
 //                                  0..1, pan -1..1); false without audio or while it still plays
 //   sound.setVolume(volume)        master gain 0..1 for every sound
+//   music.play(localPath)          ABI v20; id; queues a local MP3 for a bounded decode worker
+//   music.getStatus()              {id, state, paused, position, duration, volume, error}; routes its ring
+//   music.setPaused(bool) / setVolume(0..1) / stop(); no file I/O or worker joins
 //   audioOutput.capabilities()     ABI v13; {known, name, formats: [{codec, channels, sampleRates, bitDepths?,
 //                                  maxBitrate?}], passthrough: ['ac3' | 'eac3' | 'dts'], pcmChannels}: what the
 //                                  connected sink takes, from its EDID (PS5: the HDMI sink); known false without one
@@ -262,6 +265,7 @@ bool ps5_react_start_images();
 void ps5_react_stop_images();
 // ABI v5: sounds the app imports (baked by tools/bundle.mjs), mixed on an audio thread.
 JSValue ps5_react_sound_api(JSContext* ctx);
+JSValue ps5_react_music_api(JSContext* ctx);
 // Decodes the baked sounds and opens the audio output; false (silent) when the app has no sounds or
 // the output fails. Start before the bundle runs, stop after the runtime shuts down.
 bool ps5_react_start_sound();

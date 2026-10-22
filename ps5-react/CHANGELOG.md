@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — local music
+
+- Add an opt-in `Music` module for bounded local MP3 streaming on a worker,
+  with independent volume, real pause/resume and audible-completion status.
+- Add sanitizer-backed decoder/resampling/lifecycle tests and a pinned MIT-0
+  decoder source. No console music result is recorded yet.
+
 ## Overdrive 1.0.18 — large-catalog navigation
 
 - Count QuickJS's per-allocation overhead when scheduling garbage collection.

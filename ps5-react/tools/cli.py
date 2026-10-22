@@ -68,6 +68,7 @@ def desktop(app, test=False, target="ps5-react-preview", resolution=None):
             raise ValueError("The scripted UI test belongs to starter; use preview for other apps")
         run(["python3", ROOT / "tools/test_resources.py"], log=ROOT / ".build/resource-test.log")
         run(["python3", ROOT / "tools/test_js_heap.py"], log=ROOT / ".build/js-heap-test.log")
+        run(["python3", ROOT / "tools/test_music.py"], log=ROOT / ".build/music-test.log")
         run(["python3", ROOT / "tools/test_archives.py"], log=ROOT / ".build/archive-test.log")
         run(["python3", ROOT / "tools/test_removals.py"], log=ROOT / ".build/removal-test.log")
         run(["python3", ROOT / "tools/test_network.py"], log=ROOT / ".build/network-test.log")

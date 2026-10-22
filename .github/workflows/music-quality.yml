@@ -1,0 +1,32 @@
+name: local music worker quality
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact source commit to test
+        required: true
+permissions:
+  contents: read
+jobs:
+  music:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Install test tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 update
+          sudo apt-get -o Acquire::Retries=2 install -y --no-install-recommends clang ffmpeg
+      - name: Test the real MP3 worker with sanitizers
+        run: |
+          set -o pipefail
+          mkdir -p music-evidence
+          git rev-parse HEAD > music-evidence/source-commit.txt
+          python3 ps5-react/tools/test_music.py 2>&1 | tee music-evidence/native-music.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Local-music-quality
+          path: music-evidence

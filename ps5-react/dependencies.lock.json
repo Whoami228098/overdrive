@@ -156,5 +156,12 @@
       "patches/ffmpeg-mov-hls-seek.patch",
       "patches/ffmpeg-hls-init-section.patch"
     ]
+  },
+  "drMp3": {
+    "url": "https://raw.githubusercontent.com/mackron/dr_libs/b4264c5c1f61c1d460aced4cf4d8a8dec197ca48/dr_mp3.h",
+    "revision": "b4264c5c1f61c1d460aced4cf4d8a8dec197ca48",
+    "sha256": "91f264e8559cc8ccecbcfc38abc77fff66533f5e95f666a4ba48238e69e190a4",
+    "bytes": 199818,
+    "license": "MIT-0"
   }
 }
