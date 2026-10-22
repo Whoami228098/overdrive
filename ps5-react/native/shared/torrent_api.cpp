@@ -370,13 +370,17 @@ void run() noexcept {
   } catch (const std::exception& error) {
     trace("session failed worker error=%s", error.what());
     std::lock_guard<std::mutex> lock(mutex);
+    // Close submission under the same lock as failing queued ids: no add may
+    // slip between failure publication and the worker's final return.
+    running = false;
     latest_error = error.what();
     for (auto& item : entries) if (item.second.status.state != completed && item.second.status.state != removed) {
       item.second.status.state = failed; item.second.error = latest_error;
     }
   } catch (...) {
     trace("session failed worker unknown exception");
-    std::lock_guard<std::mutex> lock(mutex); latest_error = "Torrent worker failed with an unknown exception.";
+    std::lock_guard<std::mutex> lock(mutex); running = false;
+    latest_error = "Torrent worker failed with an unknown exception.";
     for (auto& item : entries) { item.second.status.state = failed; item.second.error = latest_error; }
   }
   { std::lock_guard<std::mutex> lock(mutex); running = false; }
