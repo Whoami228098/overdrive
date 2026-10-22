@@ -31,8 +31,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-ref', required=True)
     parser.add_argument('--minutes', type=int, default=90, choices=range(121))
+    parser.add_argument('--system-library', action='store_true', help='Fast smoke only; never the timed pinned-source soak')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/torrent-soak')
     args = parser.parse_args()
+    if args.system_library and args.minutes:
+        raise ValueError('The timed soak must use the pinned source build')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     commit = subprocess.check_output(['git', 'rev-parse', args.source_ref + '^{commit}'], cwd=ROOT, text=True).strip()
@@ -51,7 +54,8 @@ def main():
     spec = importlib.util.spec_from_file_location('torrent_builder', ROOT / 'native/ps5/torrent_build.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    upstream, boost = module.inputs(ROOT / '.deps/torrent-ps5')
+    if not args.system_library:
+        upstream, boost = module.inputs(ROOT / '.deps/torrent-ps5')
     project = output / 'project'
     project.mkdir(exist_ok=True)
     harness = ROOT / 'tools/tests/torrent_soak.cpp'
@@ -65,29 +69,33 @@ foreach(flag build_tests build_examples build_tools build_benchmark deprecated-f
 endforeach()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-omit-frame-pointer -DTORRENT_BROKEN_RANDOM_DEVICE=1")
 add_link_options(-fsanitize=address,undefined)
-add_subdirectory("''' + str(upstream) + '''" upstream)
+find_package(OpenSSL REQUIRED)
+''' + ('''find_package(PkgConfig REQUIRED)
+pkg_check_modules(HOST_LT REQUIRED IMPORTED_TARGET libtorrent-rasterbar)
+''' if args.system_library else 'add_subdirectory("' + str(upstream) + '" upstream)\n') + '''
 add_executable(native-soak "''' + str(source / 'torrent_api.cpp') + '''" "''' + str(harness) + '''")
 target_include_directories(native-soak PRIVATE "''' + str(source) + '''")
 target_compile_definitions(native-soak PRIVATE TORRENT_MINIMAL=1)
-target_link_libraries(native-soak PRIVATE torrent-rasterbar)
+target_link_libraries(native-soak PRIVATE ''' + ('PkgConfig::HOST_LT' if args.system_library else 'torrent-rasterbar') + ''' OpenSSL::Crypto)
 ''')
     build = output / 'build'
     run(['cmake', '-S', str(project), '-B', str(build), '-G', 'Ninja',
          '-DCMAKE_C_COMPILER=clang-18', '-DCMAKE_CXX_COMPILER=clang++-18',
          '-DCMAKE_BUILD_TYPE=RelWithDebInfo', '-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O1 -gline-tables-only -DNDEBUG',
-         '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', '-DBoost_INCLUDE_DIR=' + str(boost),
-         '-DBOOST_INCLUDEDIR=' + str(boost)], output / 'configure.log')
+         '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', *([] if args.system_library else
+         ['-DBoost_INCLUDE_DIR=' + str(boost), '-DBOOST_INCLUDEDIR=' + str(boost)])], output / 'configure.log')
     run(['cmake', '--build', str(build), '--parallel', '2'], output / 'compile.log')
     manifest = {'native_source_commit': commit, 'native_sources': inputs,
         'test_code_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'test_harness_sha256': sha(harness), 'dependency_lock_sha256': sha(lock),
         'pinned_libtorrent': json.loads(pinned)['libtorrent'], 'minutes_requested': args.minutes,
+        'libtorrent_build': 'system-smoke-only' if args.system_library else 'pinned-source-sanitized',
         'platform': 'Linux host', 'sanitizers': ['address', 'undefined'], 'hardware_tested': False,
         'openssl_host_version': subprocess.check_output(['openssl', 'version'], text=True).strip()}
     (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     environment = dict(os.environ,
         ASAN_OPTIONS='detect_leaks=1:halt_on_error=1:quarantine_size_mb=64:thread_local_quarantine_size_kb=1024',
-        UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1')
+        UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1', ASAN_SYMBOLIZER_PATH='/usr/bin/llvm-symbolizer-18')
     started = time.monotonic()
     records = []
     command = [str(build / 'native-soak'), str(args.minutes), str(output / 'sandbox')]

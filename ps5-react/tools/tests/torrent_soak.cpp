@@ -86,7 +86,8 @@ torrent::Status status(int id) {
 void state(int id, int value, const char* label, std::chrono::seconds timeout = 30s) {
   wait_for([&] {
     const auto current = status(id).state;
-    if (current == torrent::failed && value != torrent::failed) throw std::runtime_error(torrent::error(id));
+    if (current == torrent::failed && value != torrent::failed && value != torrent::removed)
+      throw std::runtime_error(torrent::error(id));
     return current == value;
   }, label, timeout);
 }

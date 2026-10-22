@@ -38,23 +38,34 @@ jobs:
         with:
           path: ps5-react/.deps
           key: deps-${{ hashFiles('ps5-react/dependencies.lock.json') }}
+      - name: Install fast smoke library
+        if: ${{ inputs.minutes == 'system-smoke' }}
+        run: sudo apt-get install -y libtorrent-rasterbar-dev pkg-config
       - name: Import and queue regressions
         run: |
           python3 ps5-react/tools/test_native_imports.py
           node --test ps5-react/native/shared/tests/torrent-integration.test.mjs app/game/game-open.test.mjs app/state/game-detection.test.mjs
       - name: Cache the sanitizer build for repeated runs
-        uses: actions/cache@v4
+        id: host-cache
+        if: ${{ inputs.minutes != 'system-smoke' }}
+        uses: actions/cache/restore@v4
         with:
           path: |
             ps5-react/.build/torrent-soak/build
             ps5-react/.build/torrent-soak/project
             ps5-react/.build/torrent-soak/exact-native-source
           key: host-soak-linux-clang18-v1-${{ inputs.source_ref }}-${{ hashFiles('ps5-react/tools/torrent_soak.py', 'ps5-react/tools/tests/torrent_soak.cpp', 'ps5-react/native/ps5/torrent/dependencies.lock.json') }}
+          restore-keys: host-soak-linux-clang18-v1-${{ inputs.source_ref }}-
       - name: Build and run sanitizer loopback soak
         env:
           SOAK_SOURCE_REF: ${{ inputs.source_ref }}
           SOAK_MINUTES: ${{ inputs.minutes }}
-        run: python3 -u ps5-react/tools/torrent_soak.py --source-ref "$SOAK_SOURCE_REF" --minutes "$SOAK_MINUTES"
+        run: |
+          if [ "$SOAK_MINUTES" = "system-smoke" ]; then
+            python3 -u ps5-react/tools/torrent_soak.py --source-ref "$SOAK_SOURCE_REF" --minutes 0 --system-library
+          else
+            python3 -u ps5-react/tools/torrent_soak.py --source-ref "$SOAK_SOURCE_REF" --minutes "$SOAK_MINUTES"
+          fi
       - name: Save host test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,3 +75,12 @@ jobs:
             ps5-react/.build/torrent-soak/*.json
             ps5-react/.build/torrent-soak/*.log
           if-no-files-found: warn
+      - name: Preserve sanitizer compilation cache
+        if: ${{ always() && inputs.minutes != 'system-smoke' && steps.host-cache.outputs.cache-hit != 'true' && hashFiles('ps5-react/.build/torrent-soak/build/build.ninja') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ps5-react/.build/torrent-soak/build
+            ps5-react/.build/torrent-soak/project
+            ps5-react/.build/torrent-soak/exact-native-source
+          key: ${{ steps.host-cache.outputs.cache-primary-key }}
