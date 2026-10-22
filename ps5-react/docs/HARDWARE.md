@@ -1,5 +1,63 @@
 # Hardware evidence
 
+## Overdrive 1.0.18 catalog navigation — 2026-10-22
+
+User-authorized testing of `PPSA99058`, Normal mode, source
+`157b1204668208eb733a3eae071f9cb20d55c7c8`, build `39837288459`.
+Uploaded image SHA-256:
+`674746a42fe75587209d728d4bcd4de1830210d4b9e3bd9c350a05573373c829`.
+Firmware `13.590.001`, ShadowMount+ `1.7-beta5fix1`, and the complete user
+catalog described below. This is PS5 execution, not a PS4-native build.
+
+- Startup checked 453 native import addresses, with no required imports
+  unresolved, and retained one guarded optional EDID placeholder. The app logged its new
+  96 MiB JavaScript cap, initialized its bundle and rendered actual covers.
+  Opening user game `PPSA08766` produced its ready event without submitting a
+  torrent. The qualification session recorded zero JS exceptions and zero
+  allocation failures; peak shared heap was 202/256 MiB.
+- The same downward/upward navigation workload ran on 1.0.17 and 1.0.18 while
+  Forza Horizon 5 continued downloading. Overview median short-window FPS
+  increased from 52.95 to 59.5; automatic GC events decreased from 17 to one.
+  Search median increased from 7.8 to 59.3 FPS, with automatic GC events
+  decreasing from 156 to zero and one idle collection after navigation.
+  These windows include transitions: the longest frame was 319.1 ms in
+  Overview and 296.1 ms in Search. They do not establish constant 60 FPS.
+  A repeated warm Overview pass had a 58.9 FPS median and a 113.2 ms longest
+  frame. Row mounting, layout and occasional other pauses remain measurable.
+- All four original queue IDs and the native resume checkpoint survived
+  replacement of the image. Forza resumed above 31.8 GB and subsequently
+  passed 41.2 GB with no queue error; sampled public-swarm speeds were about
+  11 MB/s, including a 11.705016 MB/s observation. Peer and network conditions
+  prevent attributing all of the gain over the user's earlier 4.5 MB/s to
+  this application change.
+- The exact image also completed the owned 512 MiB private torrent using a
+  separate batched Node TCP peer. Peak sampled payload rate was 11.825652
+  MB/s and the positive-sample median was 11.331566 MB/s. Independent complete
+  readback matched SHA-256
+  `a528fedfe4d83efde2836edfed2e4ebc9c8045c3e68a19c9cd94d72be5bdc32c`.
+  Synthetic payload/checkpoint files were removed, the original queue restored
+  and Forza resumed. Similar results with Python and Node peers do not identify
+  the remaining throughput constraint or establish a universal speed ceiling.
+  The separate 26 MB/s raw TCP result is not a torrent speed claim.
+
+The torrent worker, I/O policy, download publishing code, cover component and
+native image loader are byte-identical to source `70ff81c`. That exact torrent
+source passed Linux ASan/UBSan/leak smoke run `39830320037` with 14 complete
+checksum-verified transfers, two session lifecycles, zero file-backed mappings
+and zero advice calls. Earlier installation evidence for Animal Well, Dreaming
+Sarah and Record of Lodoss War therefore remains scoped to their observed
+formats and loader results; gameplay and universal compatibility are unproven.
+
+The new app source passed the complete Linux framework suite in run
+`39839265507` (workflow-only dependency-download fix at `d79bcbe`; checkout and
+recorded test source are exactly `157b120`). Build diagnostics also passed 44
+app/queue tests, three search regressions, 98 runtime JS tests, seven import
+checks and five compiled heap-accounting/scheduler tests. All 4,010 package
+files and the 4,619-blob matching source archive were checked. These Linux
+results remain distinct from the console observations above. The immutable
+build receipt retains its build-time `hardware_tested: false`; later hardware
+evidence qualifies only the tested image and cases.
+
 ## Overdrive 1.0.16 covers, torrent I/O and PS5 installation — 2026-10-22
 
 User-authorized testing of `PPSA99058`, Normal mode, source
