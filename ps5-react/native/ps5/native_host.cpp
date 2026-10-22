@@ -14,6 +14,11 @@
 #include "thread_name.hpp"
 #include "app_config.hpp"
 #include "async_log.hpp"
+
+#if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+// Generated from the linked ELF. Checks addresses without calling any import.
+extern "C" bool ps5_react_audit_imports(void (*log)(const char*));
+#endif
 #include "platform/ps5/display_egl.hpp"
 #include "platform/ps5/pad.hpp"
 #include "platform/ps5/system.hpp"
@@ -435,6 +440,8 @@ bool run_proof() {
     torrent::set_logger([](const char* line) { async_log::write("[PS5-REACT] torrent %s", line); });
     if (!network_ready)
       async_log::write("[PS5-REACT] torrent startup skipped: native networking is not running");
+    else if (!ps5_react_audit_imports([](const char* line) { async_log::write("[PS5-REACT] %s", line); }))
+      async_log::write("[PS5-REACT] torrent startup refused: unresolved native imports");
     else if (!torrent::start())
       async_log::write("[PS5-REACT] torrent startup refused: %s", torrent::last_error());
 #endif

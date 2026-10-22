@@ -7,6 +7,10 @@
   session construction; a constructor returning does not prove network-thread health.
 - Retain native ELF symbols, line tables, linker maps, imports and test logs in
   CI, with exact-source reproduction and diagnostic-only workflow inputs.
+- Seed libtorrent's random engine through OpenSSL instead of libc++'s
+  `random_device`, which imported `arc4random` from a private WebKit module.
+  Reject those imports at build time and check every final native import address
+  without calling it before starting the torrent worker on the console.
 
 ## Unreleased — user game pages and torrent startup
 

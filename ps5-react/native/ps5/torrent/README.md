@@ -36,6 +36,17 @@ tables for host and libtorrent code. Set `diagnostic_only` to skip draft release
 and the unrelated PS4 build. To reproduce a previous artifact, set `source_ref`
 to its exact commit, then compare executable bytes before using its addresses.
 
+The PS5 build sets upstream `TORRENT_BROKEN_RANDOM_DEVICE=1`: libtorrent seeds
+its PRNG using the existing cryptographic OpenSSL `RAND_bytes` backend. It does
+not use a fixed seed or a dummy entropy function. The linker excludes the private
+`libScePosixForWebKit` stub and refuses `arc4random`/`arc4random_buf` imports.
+`native-imports.json` lists the actual imports and records SDK-provider checks.
+Before session startup the generated runtime audit reads every import address,
+logs null symbols and `native imports checked=N unresolved=M`, and refuses the
+torrent startup if M is nonzero. Build-time provider checks alone cannot prove
+the firmware loader supplied an address; this runtime result requires a console
+test. No imported function is called by the audit.
+
 The worker owns the session/alerts and exposes bounded submission and snapshots.
 The host schedules it at startup before loading JS, without waiting for session
 initialization. JS add/control calls never start or join a worker. Each queued

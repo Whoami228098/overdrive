@@ -85,7 +85,7 @@ jobs:
             llvm-readelf-18 --dyn-syms --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.dyn-syms.txt
             llvm-readelf-18 --relocations --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.relocations.txt
           fi
-          for file in eboot.elf llvm-pie.map link.log torrent-queue-tests.log native-network-tests.log; do
+          for file in eboot.elf llvm-pie.map native-imports.json native-import-audit.cpp link.log torrent-queue-tests.log native-network-tests.log native-import-tests.log; do
             if [ -f "$build/$file" ]; then cp "$build/$file" native-diagnostics/; fi
           done
 

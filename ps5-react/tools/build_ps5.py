@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import urllib.request
 import zipfile
+from native_imports import imports as native_imports, audit_source, verify_providers
 
 from rar_worker import build as build_rar_worker, unrar_source
 from common import layouts, layout_directory, resource_files, ROOT, DEPS, LOCK, run, digest, verify, fetch, app_files, bundle, dependency, stb_image, refresh_rate_mask
@@ -126,6 +127,7 @@ def main():
     # BrowserCapture fixture that still expects the older three-argument ABI.
     run(["node", "--test", "--test-name-pattern=native network tasks|archive and download task IDs|removeAsync",
          ROOT / "runtime/js/native.test.mjs"], log=BUILD / "native-network-tests.log")
+    run(["python3", ROOT / "tools/test_native_imports.py"], log=BUILD / "native-import-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
     torrent_spec = importlib.util.spec_from_file_location("overdrive_torrent_build", ROOT / "native/ps5/torrent_build.py")
@@ -245,12 +247,23 @@ def main():
     network_libs = [network_ports / "lib" / name for name in ("libcurl.a", "libssl.a", "libcrypto.a", "libz.a", "libzstd.a", "libpsl.a")] if network_ports else []
     archive_libs = [archive_ports / "lib" / name for name in ("libarchive.a", "liblzma.a", "libbz2.a", "libzstd.a", "libz.a", "libcrypto.a")]
     pie = BUILD / "llvm-pie.elf"
+    # Never turn a private WebKit stub into a title import. SDK libc fallbacks
+    # remain after module stubs, and libtorrent uses OpenSSL entropy explicitly.
+    sdk_stubs = [p for p in sorted(libs.glob("*.so")) if p.name != "libScePosixForWebKit.so"]
+    audit_cpp, audit_obj = BUILD / "native-import-audit.cpp", BUILD / "obj/native-import-audit.o"
+    audit_cpp.write_text(audit_source([]))
+    def compile_audit():
+        run(["sh", hui / "tooling/prospero-clang18", "-std=c++20", "-O2", "-gline-tables-only",
+             "-Wall", "-Wextra", "-Werror", "-fno-exceptions", "-fno-rtti", "-c", audit_cpp, "-o", audit_obj],
+            env=env, log=BUILD / "compile-import-audit.log")
+    compile_audit()
+    objects.append(audit_obj)
     wraps = ["malloc", "calloc", "realloc", "free", "posix_memalign", "malloc_usable_size",
              "sceSystemServiceHideSplashScreen", "sceKernelDebugOutText",
              "nl_langinfo", "___mb_cur_max", "mbrtowc", "wcrtomb"]
     if access_client:
         wraps += ["sceNetSocket", "sceNetSetsockopt", "sceNetConnect", "sceNetSend", "sceNetRecv"]
-    run([sdk / "bin/prospero-lld", "-L", libs, "-T", native / "ps5-pie.ld", "--eh-frame-hdr",
+    link_command = [sdk / "bin/prospero-lld", "-L", libs, "-T", native / "ps5-pie.ld", "--eh-frame-hdr",
          # PS5 lacks this optional libc hook. Null selects libc++abi's existing
          # pthread-TLS destructor fallback and avoids an unresolvable weak import.
          "--defsym=__cxa_thread_atexit_impl=0",
@@ -261,11 +274,31 @@ def main():
          cross / "bridge/engine/libembedded-react.a", cross / "_deps/quickjs-build/libqjs.a",
          gl / "lib/libPS5OpenGL.a", libs / "libunwind.a", libs / "libc++abi.a", libs / "libc++.a",
          *torrent["libraries"], *video_libs, *network_libs, *archive_libs, builtins, "--end-group", *video_stubs, "--as-needed", *agc_stubs,
-         *sorted(libs.glob("*.so")),
+         *sdk_stubs,
          # SDK compatibility fallbacks (including C-locale APIs used by libc++).
          # Keep these after the module stubs so existing imports take precedence.
-         libs / "libc.a"],
-        env=env, log=BUILD / "link.log")
+         libs / "libc.a"]
+    run(link_command, env=env, log=BUILD / "link.log")
+    # Generate from actual linked imports, not every symbol a static archive mentions.
+    entries = native_imports(pie)
+    if not entries:
+        raise RuntimeError('Expected native dynamic imports in the linked PS5 ELF')
+    for attempt in range(3):
+        verify_providers(entries, [*sdk_stubs, *agc_stubs, *video_stubs])
+        audit_cpp.write_text(audit_source(entries))
+        compile_audit()
+        run(link_command, env=env, log=BUILD / "link.log")
+        final_entries = native_imports(pie)
+        if [s['name'] for s in entries] == [s['name'] for s in final_entries]:
+            entries = final_entries
+            break
+        entries = final_entries
+    else:
+        raise RuntimeError('Native import audit did not stabilize after relinking')
+    verify_providers(entries, [*sdk_stubs, *agc_stubs, *video_stubs])
+    (BUILD / "native-imports.json").write_text(json.dumps({'imports': entries,
+        'sdk_providers_verified': True, 'runtime_addresses_verified': False,
+        'private_webkit_random_imports': False}, indent=2) + "\n")
     elf = BUILD / "eboot.elf"
     run([host_tool, "link", "--in", pie, "--out", elf, "--stub-dir", libs,
          *[flag for path in [*agc_stubs, *video_stubs] for flag in ("--stub", path)], "--module-sdk", "0x02000009",

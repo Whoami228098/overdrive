@@ -80,6 +80,7 @@ def prepare(sdk, ports, env, build):
         '-DOPENSSL_USE_STATIC_LIBS=TRUE']
     # Keep line information for console crash symbolization without changing optimization.
     cmake += ['-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -gline-tables-only']
+    cmake += ['-DCMAKE_CXX_FLAGS=-DTORRENT_BROKEN_RANDOM_DEVICE=1']
     for name, command in [('configure', cmake), ('build', ['cmake', '--build', str(destination), '--target', 'torrent-rasterbar', '--parallel', '6'])]:
         log_path = build / f'torrent-{name}.log'
         with log_path.open('w') as log:
@@ -96,11 +97,13 @@ def prepare(sdk, ports, env, build):
         'sources': [ROOT / 'native/shared/torrent_api.cpp', ROOT / 'native/shared/torrent_js.cpp'],
         'includes': [source / 'include', boost],
         'definitions': ['-DPS5_REACT_TORRENT=1', '-DTORRENT_MINIMAL=' + minimal,
+            '-DTORRENT_BROKEN_RANDOM_DEVICE=1',
             '-DTORRENT_NO_DEPRECATE', '-DTORRENT_DISABLE_LOGGING',
             '-DTORRENT_USE_OPENSSL', '-DTORRENT_USE_LIBCRYPTO', '-DTORRENT_SSL_PEERS', '-DOPENSSL_NO_SSL2',
             '-DBOOST_ASIO_ENABLE_CANCELIO', '-DBOOST_ASIO_NO_DEPRECATED'],
         'libraries': [library],
         'receipt': {'dependencies': MANIFEST, 'library_sha256': sha256(library),
-            'minimal_mode': minimal == '1', 'hardware_tested': False},
+            'minimal_mode': minimal == '1', 'random_seed_backend': 'openssl-RAND_bytes',
+            'hardware_tested': False},
         'licenses': [source / 'COPYING', boost / 'LICENSE_1_0.txt']
     }
