@@ -81,6 +81,13 @@ workflow can call it with `host_soak_minutes` set to `0` or `90`; console build
 and release jobs are skipped in that mode.
 
 The worker owns the session/alerts and exposes bounded submission and snapshots.
+It explicitly selects `posix_disk_io_constructor`, the upstream portable C file
+backend, and logs `session disk backend=posix`. The 1.0.12 console fixture
+obtained metadata but stalled during its first payload writes with the default
+memory-mapped backend. A standalone local peer delivered the expected bytes;
+the backend change requires a new checksum-verified console comparison before
+it can be credited as a fix. Simple standalone file mappings alone do work on
+the test console and do not establish the cause of the full-session failure.
 The host schedules it at startup before loading JS, without waiting for session
 initialization. JS add/control calls never start or join a worker. Each queued
 add carries its own save root; directory and resume work run on the worker.
@@ -88,7 +95,10 @@ Session lifecycle and add ids are written through the PS5 async logger. A blocke
 session constructor or metadata request cannot hold the submission/snapshot lock.
 Listeners use IPv4 ports 6881–6889. Connections are capped at 64, the send watermark
 at 256 KiB, disk workers at 2, and hashing workers at 1. The optional PS5 network
-pool is 4 MiB instead of the HTTP-only 1 MiB. These are resource limits, not a
+pool is 4 MiB instead of the HTTP-only 1 MiB. The explicit POSIX backend performs
+its disk work on the background session thread; the configured asynchronous
+disk/hash thread counts apply to upstream backends that use those pools.
+These are resource limits, not a
 measured throughput claim. The app still runs one queue transfer at a time.
 
 Each torrent's payload is isolated under `saveRoot/downloads/torrents/<info-hash>`.

@@ -3,6 +3,8 @@
 // Additional attribution term: see LICENSE-ATTRIBUTION.
 #include "torrent_api.hpp"
 #include <libtorrent/session.hpp>
+#include <libtorrent/session_params.hpp>
+#include <libtorrent/posix_disk_io.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/torrent_info.hpp>
@@ -204,7 +206,12 @@ void run() noexcept {
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::connect);
     trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
-    lt::session session(settings);
+    // File-backed mappings differ on console filesystems. Keep disk access on
+    // libtorrent's portable backend; the session still runs off the JS thread.
+    lt::session_params session_config(settings);
+    session_config.disk_io_constructor = lt::posix_disk_io_constructor;
+    trace("session disk backend=posix");
+    lt::session session(std::move(session_config));
     trace("session ready worker");
     bool exiting = false;
     Clock::time_point deadline;

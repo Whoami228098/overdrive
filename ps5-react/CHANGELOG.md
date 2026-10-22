@@ -1,5 +1,11 @@
 # Changelog
 
+## Overdrive 1.0.13 — portable torrent disk backend
+
+- Select libtorrent's POSIX disk backend explicitly for console data-path
+  qualification and log the selected backend at startup.
+- Keep disk operations on the background session rather than the JS bridge.
+
 ## Overdrive 1.0.12 — invalid optional game text
 
 - Normalize optional developer, publisher and release text before a user game
