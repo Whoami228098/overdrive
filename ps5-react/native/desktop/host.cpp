@@ -768,11 +768,19 @@ bool storage_test() {
       catch (error) { if (!error.message.includes('fs.readDir')) return false; }
       // readFile sizes its buffer from the file: exact for small, empty and multi-megabyte files.
       if (fs.readFile(testPath) !== 'listing test') return false;
+      fs.writeFile(testPath, '\u0000\u007f\u0080\u00ff', false);
+      const exact = new Uint8Array(fs.readBytes(testPath));
+      if (exact.length !== 6 || ![0,127,194,128,195,191].every((value, i) => exact[i] === value)) return false;
+      try { fs.readBytes('/download0'); return false; }
+      catch (error) { if (!error.message.includes('fs.readBytes')) return false; }
       fs.writeFile(testPath, '', false);
       if (fs.readFile(testPath) !== '') return false;
+      if (new Uint8Array(fs.readBytes(testPath)).length !== 0) return false;
       const large = 'x'.repeat(3 * 1024 * 1024 + 7);
       fs.writeFile(testPath, large, false);
       if (fs.readFile(testPath) !== large) return false;
+      try { fs.readBytes(testPath); return false; }
+      catch (error) { if (!error.message.includes('1048576')) return false; }
       fs.writeFile(testPath, 'synced', false, true);
       if (fs.readFile(testPath) !== 'synced') return false;
     } finally { fs.remove(testPath); }

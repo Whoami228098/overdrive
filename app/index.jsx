@@ -18,6 +18,9 @@ import { StoreFreeze, StoreProvider } from './state/store.jsx';
 import { Header } from './ui/Header.jsx';
 import { Legend } from './ui/Legend.jsx';
 import { Splash } from './ui/Splash.jsx';
+import { IceBackground } from './ui/IceBackground.jsx';
+import { useBackgroundMusic } from './music/index.js';
+import { ModsScreen } from './mods/ModsScreen.jsx';
 import { UpdateDialog } from './ui/UpdateDialog.jsx';
 import { useInterfaceHaptics } from './ui/haptics.js';
 import { useInterfaceSounds } from './ui/sounds.js';
@@ -35,6 +38,7 @@ import { VERSION } from './version.js';
     if (screen2.name === "game") return /* @__PURE__ */ (0, jsx)(GameScreen, { game: getGame(screen2.id), download: screen2.download, onBack: pop, onOpenGame: openCard });
     if (screen2.name === "downloads") return /* @__PURE__ */ (0, jsx)(DownloadsScreen, { onBack: pop, onBrowse: () => showLibrary(NO_FILTERS, "newest", "spotlight:cta", "discover"), onOpenGame: openGame });
     if (screen2.name === "files") return /* @__PURE__ */ (0, jsx)(FilesScreen, { onBack: pop });
+    if (screen2.name === "mods") return (0, jsx)(ModsScreen, { titleId: screen2.id, onBack: pop });
     return /* @__PURE__ */ (0, jsx)(SearchScreen, { onBack: pop, onOpenGame: openCard });
   }
   // The store front stays mounted under every other screen; while hidden it lets its images go (the
@@ -51,6 +55,7 @@ import { VERSION } from './version.js';
   }
   var WARM_DELAY_MS = 3e3;
   function App() {
+    useBackgroundMusic();
     useInterfaceSounds();
     useInterfaceHaptics();
     (0, useEffect)(() => {
@@ -67,6 +72,7 @@ import { VERSION } from './version.js';
     return (
       // Arabic and Urdu mirror every row and right-align every paragraph from here.
       /* @__PURE__ */ (0, jsxs)(View, { style: [{ width: 1920, height: 1080, backgroundColor: "#000000" }, { direction: rtl ? "rtl" : "ltr" }], children: [
+        /* @__PURE__ */ (0, jsx)(IceBackground, {}),
         /* @__PURE__ */ (0, jsxs)(Header, { children: [
           /* @__PURE__ */ (0, jsx)(BrowseLayer, { shown: onBrowse }),
           keepHomebrew ? /* @__PURE__ */ (0, jsx)(HomebrewLayer, { shown: onHomebrew }) : null,

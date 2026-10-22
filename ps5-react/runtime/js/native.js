@@ -73,6 +73,8 @@ export const FileSystem = {
   exists: path => host().fs.stat(path) !== null,
   /** UTF-8, at most 8 MiB. @param {string} path @returns {string} */
   readFile: path => host().fs.readFile(path),
+  /** Exact binary bytes, regular files up to 1 MiB (for small SFO metadata). */
+  readBytes: path => new Uint8Array(host().fs.readBytes(path)),
   /** `sync` waits until the text is on the disk, for a file saved then renamed into place.
    * @param {string} path @param {string} text @param {{sync?: boolean}} [options] */
   writeFile: (path, text, {sync = false} = {}) => host().fs.writeFile(path, text, false, sync),

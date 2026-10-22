@@ -14,7 +14,8 @@ import { DownloadToast } from './DownloadToast.jsx';
 import { DownloadsBadge } from './DownloadsBadge.jsx';
 import { FocusRing } from './FocusRing.jsx';
 import { LanguageSheet } from './LanguageSheet.jsx';
-import { Logo } from './Logo.jsx';
+import { NowPlaying } from './NowPlaying.jsx';
+import { toggleMusic } from '../music/index.js';
 import { Menu, MenuDivider, MenuItem } from './Menu.jsx';
 import { NavItem } from './NavItem.jsx';
 import { NavPill, useNavLayouts } from './NavPill.jsx';
@@ -47,6 +48,7 @@ import { FocusScope, Text, View } from '@ps5-react/core';
     const down = top.name === "browse" ? "page" : top.name === "homebrew" ? "homebrew-page" : "screen";
     const toastAction = (0, useRef)(null);
     const onAction = (action) => {
+      if (action === "r3") return toggleMusic();
       if (action === "r2" && toastAction.current) {
         toastAction.current();
         return true;
@@ -114,7 +116,8 @@ import { FocusScope, Text, View } from '@ps5-react/core';
                   }
                 }
               ),
-              /* @__PURE__ */ (0, jsxs)(Menu, { open: browsing, onClose: () => setBrowsing(false), rows: genres.length + 2, children: [
+              /* @__PURE__ */ (0, jsxs)(Menu, { open: browsing, onClose: () => setBrowsing(false), rows: genres.length + 3, children: [
+                (0, jsx)(MenuItem, {label:t2("mods.title"),onSelect:()=>nav.push({name:"mods"},keyOf("catalog"))}),
                 /* @__PURE__ */ (0, jsx)(
                   MenuItem,
                   {
@@ -140,9 +143,8 @@ import { FocusScope, Text, View } from '@ps5-react/core';
             ] })
           ] })
         ] }),
-        /* @__PURE__ */ (0, jsxs)(View, { focusKey: "nav:home", onPress: on.discover, nextFocusDown: down, style: { marginHorizontal: 36, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 6, paddingHorizontal: 12 }, children: [
-          /* @__PURE__ */ (0, jsx)(FocusRing, {}),
-          /* @__PURE__ */ (0, jsx)(Logo, {}),
+        /* @__PURE__ */ (0, jsxs)(View, { style: { marginHorizontal: 36, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 6, paddingHorizontal: 12 }, children: [
+          /* @__PURE__ */ (0, jsx)(NowPlaying, { nextFocusDown: down }),
           /* @__PURE__ */ (0, jsx)(Text, { style: { fontFamily: "Inter-Regular", fontSize: 21, color: "#8a8a94" }, children: `v${VERSION}` })
         ] }),
         /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 24 }, children: [

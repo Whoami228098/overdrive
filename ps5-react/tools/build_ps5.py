@@ -414,12 +414,16 @@ def main():
         "SheenBidi-LICENSE": sb / "LICENSE",
         "Inter-LICENSE": hui / "assets/fonts/Inter-LICENSE.txt",
         "material-sounds-NOTICE.txt": ROOT / "licenses/material-sounds-NOTICE.txt",
+        "dr_mp3-MIT-0.txt": ROOT / "licenses/dr_mp3-MIT-0.txt",
         "ArtCNN-LICENSE": ROOT / "licenses/ArtCNN-LICENSE",
         "Anime4K-LICENSE": ROOT / "licenses/Anime4K-LICENSE",
         "ps5-opengl-LICENSE": gl.parent / "LICENSE",
         "ps5-opengl-NOTICES.md": gl.parent / "THIRD_PARTY_NOTICES.md",
     }.items():
         shutil.copy2(source, notices / name)
+    mod_hash_notice = app_dir / "mods/vendor/noble-hashes/LICENSE"
+    if mod_hash_notice.is_file():
+        shutil.copy2(mod_hash_notice, notices / "noble-hashes-MIT.txt")
     if (gl.parent / "LICENSES").exists():
         shutil.copytree(gl.parent / "LICENSES", notices / "ps5-opengl", dirs_exist_ok=True)
     for name in ("ffmpeg-LICENSE.md", "ffmpeg-COPYING.LGPLv3", "video-decoder-NOTICE.txt", "audio-passthrough-NOTICE.txt"):

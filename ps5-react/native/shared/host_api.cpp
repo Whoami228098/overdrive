@@ -121,33 +121,39 @@ JSValue fs_stat(JSContext* ctx, JSValueConst, int, JSValueConst* argv) {
   return entry(ctx, base_name(path.app()), st);
 }
 
-JSValue fs_read_file(JSContext* ctx, JSValueConst, int, JSValueConst* argv) {
+JSValue fs_read_file_impl(JSContext* ctx, JSValueConst* argv, bool binary) {
+  const char* call = binary ? "fs.readBytes" : "fs.readFile";
+  const std::size_t limit = binary ? 1024 * 1024 : kMaxReadBytes;
   Path path(ctx, argv[0]);
-  const int fd = path ? open(path.real(), O_RDONLY) : -1;
-  if (fd < 0) return path.error("fs.readFile");
+  const int fd = path ? open(path.real(), O_RDONLY | (binary ? O_NONBLOCK : 0)) : -1;
+  if (fd < 0) return path.error(call);
   struct stat st;
   if (fstat(fd, &st) != 0) {
-    const JSValue error = path.error("fs.readFile");
+    const JSValue error = path.error(call);
     close(fd);
     return error;
   }
-  if (st.st_size > static_cast<off_t>(kMaxReadBytes)) {
+  if (binary && !S_ISREG(st.st_mode)) {
     close(fd);
-    return JS_ThrowPlainError(ctx, "fs.readFile %s: File is larger than %zu bytes", path.app(), kMaxReadBytes);
+    return JS_ThrowPlainError(ctx, "fs.readBytes %s: Expected a regular file", path.app());
+  }
+  if (st.st_size > static_cast<off_t>(limit)) {
+    close(fd);
+    return JS_ThrowPlainError(ctx, "%s %s: File is larger than %zu bytes", call, path.app(), limit);
   }
   // Size from fstat is only a hint; special files report 0, so read until EOF within the cap. The
   // buffer starts at the reported size, so reading a small file does not take the cap from the heap.
-  std::size_t capacity = st.st_size > 0 ? static_cast<std::size_t>(st.st_size) + 1 : kMaxReadBytes + 1;
+  std::size_t capacity = st.st_size > 0 ? static_cast<std::size_t>(st.st_size) + 1 : limit + 1;
   char* buffer = static_cast<char*>(std::malloc(capacity));
   std::size_t length = 0;
   ssize_t count = 0;
-  while (buffer && length <= kMaxReadBytes && (count = read(fd, buffer + length, capacity - length)) > 0) {
+  while (buffer && length <= limit && (count = read(fd, buffer + length, capacity - length)) > 0) {
     length += static_cast<std::size_t>(count);
-    if (length == capacity && capacity <= kMaxReadBytes) {
-      char* grown = static_cast<char*>(std::realloc(buffer, kMaxReadBytes + 1));
+    if (length == capacity && capacity <= limit) {
+      char* grown = static_cast<char*>(std::realloc(buffer, limit + 1));
       if (!grown) std::free(buffer);
       buffer = grown;
-      capacity = kMaxReadBytes + 1;
+      capacity = limit + 1;
     }
   }
   if (!buffer) {
@@ -155,13 +161,22 @@ JSValue fs_read_file(JSContext* ctx, JSValueConst, int, JSValueConst* argv) {
     return JS_ThrowOutOfMemory(ctx);
   }
   JSValue result;
-  if (count < 0) result = path.error("fs.readFile");
-  else if (length > kMaxReadBytes)
-    result = JS_ThrowPlainError(ctx, "fs.readFile %s: File is larger than %zu bytes", path.app(), kMaxReadBytes);
+  if (count < 0) result = path.error(call);
+  else if (length > limit)
+    result = JS_ThrowPlainError(ctx, "%s %s: File is larger than %zu bytes", call, path.app(), limit);
+  else if (binary) result = JS_NewArrayBufferCopy(ctx, reinterpret_cast<const std::uint8_t*>(buffer), length);
   else result = JS_NewStringLen(ctx, buffer, length);
   std::free(buffer);
   close(fd);
   return result;
+}
+
+JSValue fs_read_file(JSContext* ctx, JSValueConst, int, JSValueConst* argv) {
+  return fs_read_file_impl(ctx, argv, false);
+}
+JSValue fs_read_bytes(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+  if (!argc) return JS_ThrowTypeError(ctx, "fs.readBytes: expected a local path");
+  return fs_read_file_impl(ctx, argv, true);
 }
 
 JSValue fs_write_file(JSContext* ctx, JSValueConst, int, JSValueConst* argv) {
@@ -575,7 +590,7 @@ JSValue namespace_object(JSContext* ctx, const char* space, const Function (&fun
 }
 
 constexpr Function kFs[] = {
-  {"readDir", fs_read_dir, 1}, {"stat", fs_stat, 1}, {"readFile", fs_read_file, 1},
+  {"readDir", fs_read_dir, 1}, {"stat", fs_stat, 1}, {"readFile", fs_read_file, 1}, {"readBytes", fs_read_bytes, 1},
   {"writeFile", fs_write_file, 4}, {"mkdir", fs_mkdir, 2}, {"remove", fs_remove, 1},
   {"removeTree", fs_remove_tree, 1}, {"removeAsync", fs_remove_async, 1},
   {"rename", fs_rename, 2}, {"copyFile", fs_copy_file, 2}, {"chmod", fs_chmod, 2}, {"mounts", fs_mounts, 0}, {"diskUsage", fs_disk_usage, 1},

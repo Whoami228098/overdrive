@@ -110,7 +110,7 @@ import { FocusScope, ScrollView, Text, View, VirtualList, motion } from '@ps5-re
         return favorite(action);
       return true;
     };
-    return /* @__PURE__ */ (0, jsx)(FocusScope, { autoFocus: true, onBack: back2, onAction, children: /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, flexDirection: "row", gap: 72, backgroundColor: "#000000", paddingHorizontal: 48, paddingTop: 48 }, children: [
+    return /* @__PURE__ */ (0, jsx)(FocusScope, { autoFocus: true, onBack: back2, onAction, children: /* @__PURE__ */ (0, jsxs)(View, { style: { flex: 1, flexDirection: "row", gap: 72, backgroundColor: "#00000099", paddingHorizontal: 48, paddingTop: 48 }, children: [
       /* @__PURE__ */ (0, jsxs)(View, { style: { gap: 36 }, children: [
         /* @__PURE__ */ (0, jsx)(QueryField, { query }),
         /* @__PURE__ */ (0, jsx)(Keyboard, { onChange: setQuery, onSubmit: on.submit, focusKey: TO_KEYBOARD })

@@ -6,6 +6,7 @@ No proprietary Sony modules are redistributed.
 
 | Dependency | Purpose and license |
 | --- | --- |
+| dr_mp3 | Local MP3 streaming decoder, vendored without changes at revision `b4264c5c1f61c1d460aced4cf4d8a8dec197ca48`; SHA-256 in `drMp3`. MIT-0 option from the source header. Music uses callbacks for bounded local reads and never maps the complete file. |
 | Embedded React | C engine, QuickJS bridge, reconciler, software compositor. Apache-2.0; revision `cf5dfe4fae966fe21a265acc3dd3b054d245f981`. |
 | ps5-homebrew-ui | EGL, controller, system, InputTracker, audio mixer and output, heap, CRT, shims, native tools. GPL-3.0-or-later; revision `4bd942579dd981b3df9c740438489ca6a614ddc0`. Its repository (github.com/blackbearreloaded/ps5-homebrew-ui) is gone; the history up to that revision is kept, unchanged, on the `ps5-homebrew-ui` branch of [MyLuxy/overdrive-deps](https://github.com/MyLuxy/overdrive-deps). |
 | ProsperoStore elevation client | Optional cooperative filesystem-access client and pinned helper build. GPL-3.0-or-later; revision `335d8c43f916020205f445b76b66106ee50d2eeb`. |

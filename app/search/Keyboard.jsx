@@ -46,7 +46,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
       _state.focused ? { backgroundColor: "#e0242c" } : null
     ], initial: false, animate: { scale: 1 }, transition: { type: "tween", duration: 0.1, ease: [0.4, 0, 0.2, 1] }, whilePress: { scale: 0.95 }, children: /* @__PURE__ */ (0, jsx)(KeyFace, { label, icon, button, url: compact }) });
   });
-  var Keyboard = (0, memo)(function Keyboard2({ onChange, onSubmit, url = false, focusKey }) {
+  var Keyboard = (0, memo)(function Keyboard2({ onChange, onSubmit, url = false, focusKey, resultsFocus = TO_RESULTS }) {
     const t2 = useT();
     const { rtl } = useLocale();
     const edge = rtl ? 0 : COLUMNS2 - 1;
@@ -72,7 +72,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
             value: url && upper ? character : character.toLowerCase(),
             onKey,
             compact: url,
-            toResults: !url && i % COLUMNS2 === edge ? TO_RESULTS : void 0
+            toResults: !url && i % COLUMNS2 === edge ? resultsFocus : void 0
           },
           character
         )
@@ -86,7 +86,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
           value: url ? "case" : " ",
           button: url ? void 0 : "triangle",
           onKey,
-          toResults: url || !rtl ? void 0 : TO_RESULTS
+          toResults: url || !rtl ? void 0 : resultsFocus
         }
       ),
       /* @__PURE__ */ (0, jsx)(
@@ -99,7 +99,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
           button: "square",
           value: "delete",
           onKey,
-          toResults: url || rtl ? void 0 : TO_RESULTS
+          toResults: url || rtl ? void 0 : resultsFocus
         }
       ),
       /* @__PURE__ */ (0, jsx)(
@@ -112,7 +112,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
           button: url ? void 0 : "l2",
           value: "clear",
           onKey,
-          toResults: url || !rtl ? void 0 : TO_RESULTS
+          toResults: url || !rtl ? void 0 : resultsFocus
         }
       ),
       /* @__PURE__ */ (0, jsx)(
@@ -124,7 +124,7 @@ import { FocusScope, Text, View, motion, useIsFocused } from '@ps5-react/core';
           button: "r2",
           value: "done",
           onKey,
-          toResults: url || rtl ? void 0 : TO_RESULTS
+          toResults: url || rtl ? void 0 : resultsFocus
         }
       )
     ] }) });

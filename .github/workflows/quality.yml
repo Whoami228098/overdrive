@@ -24,10 +24,17 @@ jobs:
               sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
             fi
           done
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends clang-18 llvm-18 cmake ninja-build build-essential \
-            libsdl2-dev libgl1-mesa-dev libcurl4-openssl-dev libarchive-dev liblzma-dev \
-            libssl-dev zlib1g-dev libarchive-tools ffmpeg nasm pkg-config nodejs npm python3-venv xvfb xauth
+          packages=(clang-18 llvm-18 cmake ninja-build build-essential libsdl2-dev libgl1-mesa-dev
+            libcurl4-openssl-dev libarchive-dev liblzma-dev libssl-dev zlib1g-dev libarchive-tools
+            ffmpeg nasm pkg-config nodejs npm python3-venv xvfb xauth)
+          missing=()
+          for package in "${packages[@]}"; do
+            if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -qx 'install ok installed'; then missing+=("$package"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-upgrade --no-install-recommends "${missing[@]}"
+          fi
           for tool in clang clang++ llvm-config; do
             sudo ln -sf "/usr/bin/$tool-18" "/usr/local/bin/$tool"
           done
@@ -60,6 +67,8 @@ jobs:
             find ps5-react/.build -maxdepth 1 -name '*test.log' -print -exec cat {} \;
           fi
           exit "$status"
+      - name: Check music and compatible mod workflows
+        run: node --test app/music/controller.test.mjs app/mods/core.test.mjs | tee quality-evidence/music-mods-tests.log
       - name: Save framework evidence
         if: always()
         uses: actions/upload-artifact@v4

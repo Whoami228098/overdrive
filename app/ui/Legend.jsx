@@ -16,6 +16,7 @@ import { View } from '@ps5-react/core';
     close: { button: "circle", label: "hints.close" }
   };
   var HINTS = {
+    mods: [HINT.select, HINT.back, HINT.sections],
     browse: [HINT.select, HINT.top, HINT.sections],
     game: [HINT.select, HINT.back, HINT.favorite, HINT.sections],
     homebrew: [HINT.select, HINT.back, HINT.favorite, HINT.sections],

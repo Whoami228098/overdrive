@@ -12,6 +12,11 @@ FileSystem.writeFile(`${FileSystem.dataDir}/save.json`, JSON.stringify(state));
 Controller.setLightBar('#38bdf8');
 ```
 
+`FileSystem.readBytes(path)` returns exact bytes as a `Uint8Array`, for regular
+files up to 1 MiB. It is intended for small binary metadata such as `param.sfo`;
+larger binary transfers belong to the asynchronous download/archive APIs.
+[`Music`](MUSIC.md) provides bounded local MP3 streaming when `music: true` is set.
+
 [`apps/system-explorer`](../apps/system-explorer) exercises every module.
 
 ## Contract
