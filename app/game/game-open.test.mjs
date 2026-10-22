@@ -16,7 +16,8 @@ function evaluate(file, names, injected = {}) {
       const name = item.trim().split(/\s+as\s+/).at(-1);
       imports[name] = name;
     }
-  code = code.replace(/^import .*;\r?$/gm, '').replace(/^export \{[^}]+\};?\r?$/gm, '');
+  code = code.replace(/^import .*;\r?$/gm, '').replace(/^export \{[^}]+\};?\r?$/gm, '')
+    .replace(/\bexport (const|let|var|function|class) /g, '$1 ');
   const context = vm.createContext({console: {log: noop}, setTimeout, clearTimeout,
     setInterval, clearInterval, ...imports, ...injected});
   vm.runInContext(code + ';globalThis.result = {' + names.join(',') + '};', context, {filename:file});
@@ -59,6 +60,26 @@ function walk(node, visit) {
   visit(node);
   walk(node.props?.children,visit);
 }
+
+test('a user cover starts its native request before an empty image can report layout', () => {
+  const h = hooks(), acquired = [];
+  let released = 0;
+  const {Image} = evaluate('ps5-react/runtime/js/focus/image.js', ['Image'], {
+    ...h, useLayoutEffect:h.useEffect, useReducer:()=>[0,noop], useContext:()=>null,
+    createContext:()=>({}), forwardRef:fn=>fn, createElement:jsx,
+    createFocusable:type=>type, isFocusable:()=>false, resolveStyle:style=>style,
+    acquireImage:(...args)=>{acquired.push(args);return ()=>released++;}
+  });
+  const {Cover} = evaluate('app/ui/Cover.jsx', ['Cover'], {...h, jsx,jsxs:jsx,Image,Text:'Text',View:'View'});
+  const uri='file:///data/homebrew/catalog-user/covers/1.jpg';
+  const tree=Cover({game:{title:'User game',art:{cover:uri,tint:'#e0242c'}},style:{width:152,height:203,borderRadius:8}});
+  walk(tree,node=>{if(node.type===Image)Image(node.props);});
+  h.mount();
+  assert.equal(acquired.length,1, 'The cover must not wait for intrinsic image dimensions');
+  assert.deepEqual(acquired[0].slice(0,5),[uri,152,203,0,false]);
+  h.unmount();
+  assert.equal(released,1);
+});
 
 test('empty built-in catalog preserves PS4/PS5 userReleases and never reads built-in pages', () => {
   const c=catalog();

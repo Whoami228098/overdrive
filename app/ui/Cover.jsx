@@ -28,11 +28,16 @@ import { Image, Text, View } from '@ps5-react/core';
     }, 1e3));
     return () => waiting.delete(token);
   }
-  var fill = (style) => ({
-    width: "100%",
-    height: "100%",
-    borderRadius: Object.assign({}, ...[style].flat(Infinity).filter(Boolean)).borderRadius
-  });
+  var fill = (style) => {
+    const box = Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
+    // A cover already has a fixed box. Give it directly to the image loader:
+    // an empty engine image has no intrinsic size to bootstrap percentage layout.
+    return {
+      width: typeof box.width === "number" ? box.width : "100%",
+      height: typeof box.height === "number" ? box.height : "100%",
+      borderRadius: box.borderRadius
+    };
+  };
   // A full engine image registry fails a load for a moment, not for this image: the cover tries again
   // a little later, a few times, instead of falling back to its title for as long as it stays mounted
   // (on the store front, for the whole session).

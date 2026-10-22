@@ -1,5 +1,12 @@
 # Changelog
 
+## Overdrive 1.0.15 — cover layout bootstrap
+
+- Give fixed cover dimensions directly to the image element so an initially
+  empty native image can begin loading before its first intrinsic layout.
+- Exercise the real cover component and image hook together, including a local
+  user-catalog URI, without injecting an artificial layout event.
+
 ## Overdrive 1.0.14 — local catalog covers
 
 - Route absolute `file:///` image sources through the existing asynchronous
