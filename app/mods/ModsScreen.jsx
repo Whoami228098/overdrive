@@ -10,7 +10,7 @@ import {createModInstaller, installedIdentity, loadModIndex, loadTitleMods, load
 
 const PAGE_SIZE=7;
 const INK={fontFamily:'Inter-Regular',fontSize:23,lineHeight:32,color:'#f0f4f8'};
-const MUTED={...INK,fontSize:19,lineHeight:27,color:'#a3b0bd'};
+const MUTED={...INK,fontSize:20,lineHeight:27,color:'#a3b0bd'};
 
 function Row({title,detail,onPress,autoFocus}) {
   return <View autoFocus={autoFocus} onPress={onPress} style={({focused})=>({height:88,
@@ -74,7 +74,7 @@ export function ModsScreen({titleId:initialId,onBack}) {
   }}>
     <View style={{flex:1,paddingHorizontal:48,paddingTop:28,paddingBottom:24,gap:20}}>
       <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
-        <Text style={{...INK,fontSize:34,lineHeight:46,fontWeight:600}}>{t('mods.title')}{titleId?` · ${titleId}`:''}</Text>
+        <Text style={{...INK,fontSize:36,lineHeight:46,fontWeight:600}}>{t('mods.title')}{titleId?` · ${titleId}`:''}</Text>
         <Button2 label={t('hints.back')} onPress={back}/>
       </View>
       <View style={{flex:1,flexDirection:'row',gap:40}}>
@@ -120,9 +120,9 @@ export function ModsScreen({titleId:initialId,onBack}) {
               {!shown.length?<Text style={INK}>{t('mods.empty')}</Text>:null}
             </View>
             <View style={{flexDirection:'row',gap:24,alignItems:'center',justifyContent:'space-between'}}>
-              <Button2 label="←" onPress={()=>setPage(value=>Math.max(0,value-1))}/>
+              <Button2 icon="chevronLeft" onPress={()=>setPage(value=>Math.max(0,value-1))}/>
               <Text style={MUTED}>{`${page+1} / ${pages} · ${list.length}`}</Text>
-              <Button2 label="→" onPress={()=>setPage(value=>Math.min(pages-1,value+1))}/>
+              <Button2 icon="chevronRight" onPress={()=>setPage(value=>Math.min(pages-1,value+1))}/>
             </View>
           </>}
           {notice?<Text style={{...MUTED,color:'#d5eaff',numberOfLines:4,ellipsizeMode:'tail'}}>{fitBytes(notice)}</Text>:null}

@@ -48,6 +48,7 @@ jobs:
         with:
           path: ps5-react/.deps
           key: deps-${{ hashFiles('ps5-react/dependencies.lock.json') }}
+          restore-keys: deps-
       - name: Record exact source and host context
         run: |
           mkdir -p quality-evidence
