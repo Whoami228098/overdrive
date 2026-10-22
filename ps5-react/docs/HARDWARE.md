@@ -1,5 +1,70 @@
 # Hardware evidence
 
+## Overdrive 1.0.13 startup and torrent data path — 2026-10-22
+
+User-authorized testing of title `PPSA99058`, Normal mode, source
+`49bef57c67d159728a368dc0506e4f47829a45c1`, build run `39731084095`.
+The uploaded image was read back and its SHA-256 matched
+`81046b39bebc1e0af3460c1559b066669ecc44a299464d37d9fb9de814d49187`.
+The app reports firmware `13.590.001` (`0x13590001`); the ShadowMount log
+labels its environment `13.60`. The loader identifies itself as ShadowMount+
+`1.7-beta5fix1`, build `2026-10-10T18:39:01Z`. These are the reported values,
+not evidence for other firmware or loader combinations.
+
+- Startup checked 453 native imports: zero missing required addresses and one
+  guarded optional EDID address. The torrent session selected the POSIX disk
+  backend, reached ready, initialized the JS bundle and processed controller input.
+  A final clean launch with no user catalog also opened the zero-game catalog,
+  filters and search without an exception or a torrent request.
+- PS4 and PS5 user entries each downloaded an owned 1 MiB loopback fixture.
+  Both complete files matched SHA-256
+  `b3dcbbbf60d44776da1cd235ddf135e6d81c52bee673ef0cdf2a14232bb1dbab`.
+  PS4 was paused at 294,912 persisted bytes, exited cleanly, relaunched showing
+  the same progress, and completed with the same checksum after resuming.
+- A 5,002-entry synthetic user catalog booted with the built-in catalog empty.
+  Scripted native controller actions opened and left 360 game pages; all 360
+  produced their ready event, with no torrent submission on page opening.
+  Periodic heap samples peaked at 84/256 MiB with zero allocation failures.
+  The test reused two local covers. Frame windows during page churn and saved
+  development screenshots had a 55.5 fps median, 51.6 fps minimum and 185.9 ms
+  maximum individual frame; this is not a constant-60-fps claim.
+- An intentionally corrupt owned resume file failed its queue job without
+  closing the UI. Removing that fixture checkpoint allowed a successful retry.
+  Three files spanning unaligned piece boundaries, nested Cyrillic paths and
+  an empty placeholder all matched their independent SHA-256 references.
+- A fresh public Debian magnet received data from external peers. It was
+  deliberately paused after 28,540,928 persisted bytes; three completed ranges
+  read independently from the console matched the official torrent's SHA-1
+  piece hashes, including a range at offset 780,140,544. This was a partial
+  transfer, not validation of the complete ISO or isolated DHT discovery.
+- A second fresh Debian test omitted all tracker, explicit-peer and web-seed
+  parameters from the magnet and removed the earlier payload/checkpoint first.
+  Normal mode found eight external peers, transferred 3,047,424 persisted bytes
+  and paused; three complete pieces read independently matched their official
+  hashes. DHT and LSD were enabled. The console also answered a bounded DHT
+  ping and returned eight routing nodes. An earlier Ubuntu hash produced no
+  peers within four minutes and was stopped through the responsive UI; this
+  is retained as a no-peer outcome, not treated as a successful transfer.
+- A sparse owned fixture wrote and verified its 1 MiB tail at offset
+  5,368,709,120. An independent read of that range matched the reference SHA-256;
+  its resume bitmap contained only piece 320. The file's logical length was
+  5 GiB + 1 MiB; the preceding 5 GiB were not downloaded.
+- Each completed test session exited through the host's normal cleanup and
+  logged the torrent worker stopping before title closure.
+
+The previous 1.0.12 image
+`ecbfd79d7ad048cb142772192e14f4cb8aa6a5e7e7a708c634fe9ad2c2f70978`
+reproducibly obtained metadata, then the loader reported
+`0xa002030a (SYSTEM_ILLEGAL_FUNCTION_CALL)` in `libtorrent-disk-thread`
+at the first payload writes. The same fixture passed with 1.0.13's POSIX
+backend. A standalone simple file mapping also worked: the exact prohibited
+operation in the full memory-mapped backend remains unidentified.
+
+The immutable build receipt predates these tests and retains its build-time
+`hardware_tested: false`; the separate hardware report qualifies the exact
+artifact and cases above. This is a PS5 host downloading PS4/PS5 payloads, not
+a PS4-native application or confirmation of every install format.
+
 ## User-reported Overdrive Minimal startup — 2026-10-22
 
 Firmware 13.590.001, ShadowMount+ active, user-visible build identity

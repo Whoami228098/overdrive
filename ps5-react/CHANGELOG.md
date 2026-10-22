@@ -5,6 +5,10 @@
 - Select libtorrent's POSIX disk backend explicitly for console data-path
   qualification and log the selected backend at startup.
 - Keep disk operations on the background session rather than the JS bridge.
+- Record exact-artifact console evidence for user catalogs, complete owned
+  payload checksums, pause/relaunch/resume, invalid-checkpoint recovery,
+  nested Unicode files, partial external-peer data and a sparse write above
+  4 GiB. Preserve the distinction between those cases and untested formats.
 
 ## Overdrive 1.0.12 — invalid optional game text
 

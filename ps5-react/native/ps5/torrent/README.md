@@ -83,11 +83,14 @@ and release jobs are skipped in that mode.
 The worker owns the session/alerts and exposes bounded submission and snapshots.
 It explicitly selects `posix_disk_io_constructor`, the upstream portable C file
 backend, and logs `session disk backend=posix`. The 1.0.12 console fixture
-obtained metadata but stalled during its first payload writes with the default
-memory-mapped backend. A standalone local peer delivered the expected bytes;
-the backend change requires a new checksum-verified console comparison before
-it can be credited as a fix. Simple standalone file mappings alone do work on
-the test console and do not establish the cause of the full-session failure.
+obtained metadata, then the loader terminated `libtorrent-disk-thread` with
+`SYSTEM_ILLEGAL_FUNCTION_CALL` during the first payload writes through the
+default memory-mapped backend. The same fixture completed with matching
+checksums under 1.0.13's POSIX backend, including pause/relaunch/resume. Simple
+standalone file mappings do work on that console; the exact prohibited
+operation in the full backend remains unidentified. See
+[`docs/HARDWARE.md`](../../../docs/HARDWARE.md) for the exact image, firmware,
+loader and scope, including external peer data and a verified write above 4 GiB.
 The host schedules it at startup before loading JS, without waiting for session
 initialization. JS add/control calls never start or join a worker. Each queued
 add carries its own save root; directory and resume work run on the worker.
@@ -124,7 +127,9 @@ The PS5 builder runs these checks before compiling libtorrent. They cover real
 queue/wrapper/source/catalog code with controlled native/FS fixtures. Separate
 local SDK builds linked a complete archive smoke ELF and a native API smoke ELF
 with strict symbol checks. No source patch was needed for the initial payload
-build. **No console execution or actual peer transfer is confirmed.**
+build. The exact Normal 1.0.13 image subsequently passed the scoped console
+startup, owned transfers and partial public-peer transfer recorded in the
+hardware report. Host test success alone does not establish console execution.
 
 This is a PS5 host engine that can download PS4 and PS5 payloads. It does not
 produce a PS4-native executable. Full app packaging follows the existing Linux
