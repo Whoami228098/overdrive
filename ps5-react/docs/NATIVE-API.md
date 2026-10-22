@@ -190,7 +190,7 @@ limited broadcast is sent; multicast (SSDP, mDNS) and unicast UDP are not availa
 
 ## Images
 
-`<Image source={{uri}}>` loads `http://` and `https://` URLs natively: fetched
+`<Image source={{uri}}>` loads `http://`, `https://` and absolute `file:///` URIs natively: fetched
 and decoded by two workers off the render thread, at the size the element is
 drawn, into a bounded LRU cache. `Image.prefetch(uri, {width, height,
 resizeMode})` warms that cache. `Image.getColor(uri)` resolves to the art's most

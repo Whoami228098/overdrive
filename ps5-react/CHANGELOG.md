@@ -1,5 +1,16 @@
 # Changelog
 
+## Overdrive 1.0.14 — local catalog covers
+
+- Route absolute `file:///` image sources through the existing asynchronous
+  loader in both the React component and native bridge, including prewarming.
+- Bound local encoded files to the same 4 MiB limit as network responses and
+  report missing or oversized files without passing them to the HTTP transport.
+- Preserve the session lifecycle and existing user download checkpoints.
+- Increase the bounded torrent profile to 128 peer connections, four disk I/O
+  workers and an 8 MiB pending-write queue; explicitly retain unlimited download
+  bandwidth. This changes capacity, not the bandwidth remote peers provide.
+
 ## Overdrive 1.0.13 — portable torrent disk backend
 
 - Select libtorrent's POSIX disk backend explicitly for console data-path

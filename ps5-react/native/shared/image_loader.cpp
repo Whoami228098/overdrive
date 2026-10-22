@@ -789,10 +789,10 @@ private:
     if (url.rfind("file://", 0) != 0) return nullptr;
     std::FILE* file = std::fopen(url.c_str() + 7, "rb");
     if (!file) return nullptr;
-    std::fseek(file, 0, SEEK_END);
+    if (std::fseek(file, 0, SEEK_END)) { std::fclose(file); return nullptr; }
     const long size = std::ftell(file);
-    std::fseek(file, 0, SEEK_SET);
-    if (size <= 0) { std::fclose(file); return nullptr; }
+    if (size <= 0 || static_cast<unsigned long>(size) > kMaxEncodedBytes ||
+        std::fseek(file, 0, SEEK_SET)) { std::fclose(file); return nullptr; }
     Bytes bytes;
     if (!bytes.reserve(static_cast<std::size_t>(size))) { std::fclose(file); return nullptr; }
     const std::size_t got = std::fread(bytes.data, 1, static_cast<std::size_t>(size), file);
@@ -806,7 +806,11 @@ private:
 
   void start_fetch(EntryPtr entry, unsigned& active) {
     if (auto body = cached(entry->url)) { ++counters.encoded_hits; decode_later({std::move(entry)}, body); return; }
-    if (auto body = read_local(entry->url)) { decode_later({std::move(entry)}, body); return; }
+    if (entry->url.starts_with("file://")) {
+      if (auto body = read_local(entry->url)) decode_later({std::move(entry)}, body);
+      else fail(entry, "could not read local image (missing, empty or exceeds 4 MiB)");
+      return;
+    }
     if (auto body = disk_.read(entry->url)) {
       ++counters.disk_hits;
       remember(entry->url, body);

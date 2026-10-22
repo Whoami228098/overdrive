@@ -191,11 +191,16 @@ void run() noexcept {
     settings.set_int(lt::settings_pack::max_retry_port_bind, minimal ? 0 : 8);
     settings.set_bool(lt::settings_pack::listen_system_port_fallback, false);
     settings.set_int(lt::settings_pack::max_metadata_size, 10 * 1024 * 1024);
-    settings.set_int(lt::settings_pack::connections_limit, 64);
+    // Keep peer discovery and disk writes ahead of the network while retaining
+    // bounded queues within the console's shared UI/engine heap.
+    settings.set_int(lt::settings_pack::connections_limit, 128);
+    settings.set_int(lt::settings_pack::connection_speed, 40);
+    settings.set_int(lt::settings_pack::torrent_connect_boost, 48);
+    settings.set_int(lt::settings_pack::download_rate_limit, 0);
     settings.set_int(lt::settings_pack::send_buffer_watermark, 256 * 1024);
-    settings.set_int(lt::settings_pack::aio_threads, 2);
+    settings.set_int(lt::settings_pack::aio_threads, 4);
     settings.set_int(lt::settings_pack::hashing_threads, 1);
-    settings.set_int(lt::settings_pack::max_queued_disk_bytes, 4 * 1024 * 1024);
+    settings.set_int(lt::settings_pack::max_queued_disk_bytes, 8 * 1024 * 1024);
     settings.set_int(lt::settings_pack::alert_queue_size, 512);
     settings.set_bool(lt::settings_pack::enable_upnp, false);
     settings.set_bool(lt::settings_pack::enable_natpmp, false);
@@ -206,6 +211,7 @@ void run() noexcept {
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::connect);
     trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
+    trace("session throughput connections=128 connect_per_second=40 disk_threads=4 queued_disk=8388608 download_limit=0");
     // File-backed mappings differ on console filesystems. Keep disk access on
     // libtorrent's portable backend; the session still runs off the JS thread.
     lt::session_params session_config(settings);

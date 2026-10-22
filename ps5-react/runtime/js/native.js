@@ -663,6 +663,7 @@ export function deferImageFetches(ms) {
   host().image.defer(ms);
 }
 
+// HTTP(S) and absolute file:/// sources share the same asynchronous native path.
 export function acquireImage(uri, width, height, fit, prefetch, listener) {
   const result = host().image.load(uri, width, height, fit, prefetch);
   const {id} = result;

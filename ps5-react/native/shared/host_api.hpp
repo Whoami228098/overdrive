@@ -87,8 +87,9 @@
 //   packages.cancel(id)            stops reporting; an install the console accepted carries on
 //   packages.poll()                state/error/contentId/status/written/total; consumes terminal results
 //   network.version()              transport version string
-//   image.load(url, width, height, fit, prefetch) {id, state, name, width, height, error, color}; takes a
-//                                  reference; fit: 0 cover, 1 contain, 2 stretch, 3 none; prefetch
+//   image.load(url, width, height, fit, prefetch) {id, state, name, width, height, error, color};
+//                                  HTTP(S) URL or absolute file:/// URI; I/O stays on a worker;
+//                                  takes a reference; fit: 0 cover, 1 contain, 2 stretch, 3 none; prefetch
 //                                  (optional) loads after drawn images; state 'loading' |
 //                                  'ready' | 'failed'; name is the engine image name when ready;
 //                                  color is '#rrggbb', the art's most prominent vivid hue, or null

@@ -90,7 +90,9 @@ int main(int argc, char** argv) {
     fail_until_ms = ms < 0 ? -1 : now_ms() + ms;
   }
   images::Result now;
-  if (mode == "load" && argc >= 7) {
+  if (mode == "validate") {
+    std::printf("{\"valid\":%s}\n", images::supported_uri(url) ? "true" : "false");
+  } else if (mode == "load" && argc >= 7) {
     load(url, std::atoi(argv[3]), std::atoi(argv[4]), std::atoi(argv[5]), now);
     const auto results = wait(1, 10000);
     if (results.empty()) return 5;

@@ -10,6 +10,15 @@
 #include <vector>
 
 namespace images {
+// URI forms supported by the asynchronous image service. Local URIs contain an
+// absolute filesystem path after file://; authorities and relative paths fail.
+inline bool supported_uri(const std::string& uri) {
+  return uri.size() <= 8192 && uri.find_first_of(std::string("\r\n\0", 3)) == std::string::npos &&
+    ((uri.starts_with("https://") && uri.size() > 8) ||
+     (uri.starts_with("http://") && uri.size() > 7) ||
+     (uri.starts_with("file:///") && uri.size() > 8));
+}
+
 // How a decoded image is fitted to the requested box, as the engine's resizeMode draws it.
 enum class Fit : std::uint8_t { cover, contain, stretch, none };
 

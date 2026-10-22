@@ -1,7 +1,8 @@
 # Remote images
 
 `<Image>` from `@ps5-react/core` draws bundled assets (imported files, baked
-into the executable) and images from `http://` or `https://` URLs:
+into the executable) and images from `http://`, `https://`, or absolute
+`file:///` URIs:
 
 ```jsx
 import {Image} from '@ps5-react/core';
@@ -14,6 +15,12 @@ URL images are fetched and decoded natively, off the render thread, at the size
 they are drawn, so remote art adds nothing to the build. On the PS5 they need
 `networking: true` (see [NETWORKING.md](NETWORKING.md)); desktop preview loads
 them with no opt-in.
+
+Local catalog covers such as `file:///data/homebrew/catalog-user/covers/1.jpg`
+use the same worker and decode queue without an HTTP request. The URI contains
+the absolute filesystem path after `file://`; authorities and relative paths
+are unsupported. Missing, empty or oversized files fail asynchronously. The
+same 4 MiB encoded and 5-megapixel source limits apply.
 
 ## Drawing
 

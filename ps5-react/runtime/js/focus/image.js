@@ -1,7 +1,7 @@
 // Copyright (C) 2026 half144 and PS5 React contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
-// <Image>: bundled assets by name, and http(s) URLs loaded natively at the size they are drawn.
+// <Image>: bundled assets by name, and HTTP(S)/absolute file URIs loaded by native workers.
 import {createContext, createElement, forwardRef, useContext, useLayoutEffect, useReducer, useRef} from 'react';
 import {acquireImage, warmImages} from '../native.js';
 import {createFocusable, isFocusable, resolveStyle} from './focusable.js';
@@ -11,10 +11,10 @@ import {FrameContext} from './runtime.js';
 const HostImage = createFocusable('Image');
 const FITS = {cover: 0, contain: 1, stretch: 2, center: 3, repeat: 3};
 
-/** The URL of a remote `source`, or null for a bundled asset name. */
-function remoteUri(source) {
+/** A worker-backed URI, or null for a bundled asset name. */
+export function remoteUri(source) {
   const uri = typeof source === 'string' ? source : source?.uri;
-  return typeof uri === 'string' && /^https?:\/\//i.test(uri) ? uri : null;
+  return typeof uri === 'string' && /^(?:https?:\/\/|file:\/\/\/)/i.test(uri) ? uri : null;
 }
 
 /** Width and height when the style fixes both in pixels, so loading need not wait for layout. */

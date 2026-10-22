@@ -55,9 +55,8 @@ JSValue load(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
   if (!text) return JS_EXCEPTION;
   std::string url(text, size);
   JS_FreeCString(ctx, text);
-  if (!(url.starts_with("https://") || url.starts_with("http://")) || url.size() > 8192 ||
-      url.find_first_of(std::string("\r\n\0", 3)) != std::string::npos)
-    return JS_ThrowTypeError(ctx, "image.load %s: expected an http:// or https:// URL (at most 8192 bytes)", url.c_str());
+  if (!images::supported_uri(url))
+    return JS_ThrowTypeError(ctx, "image.load %s: expected http://, https:// or an absolute file:/// URI (at most 8192 bytes)", url.c_str());
   int width = 0, height = 0, fit = 0;
   if (JS_ToInt32(ctx, &width, argv[1]) || JS_ToInt32(ctx, &height, argv[2]) || JS_ToInt32(ctx, &fit, argv[3]))
     return JS_EXCEPTION;
@@ -88,8 +87,7 @@ JSValue warm(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
     if (const char* text = JS_ToCString(ctx, item)) {
       std::string url(text);
       JS_FreeCString(ctx, text);
-      if ((url.starts_with("https://") || url.starts_with("http://")) && url.size() <= 8192 &&
-          url.find_first_of(std::string("\r\n\0", 3)) == std::string::npos) urls.push_back(std::move(url));
+      if (images::supported_uri(url)) urls.push_back(std::move(url));
     }
     JS_FreeValue(ctx, item);
   }

@@ -142,6 +142,34 @@ def main():
             return result, (argb(out, result["width"], result["height"]) if result["ready"] else None)
 
         source = photo(1600, 1200)
+        # The real catalog uses local covers. Both JPEG and PNG must decode to
+        # identical pixels without issuing a network request, including Unicode.
+        before = len(Handler.requests)
+        for extension in ['png', 'jpg']:
+            local = directory / f'обложка с пробелом.{extension}'
+            local.write_bytes(BODIES[f'/photo.{extension}'][1])
+            result = run('load', 'file://' + str(local), 300, 300, COVER, directory / 'local-pixels')
+            assert result['ready'], result
+            pixels = argb(directory / 'local-pixels', result['width'], result['height'])
+            expected = source.crop((200, 0, 1400, 1200)).resize((300, 300), Image.BOX)
+            assert difference(pixels, expected) < 3, result
+        for name, content in [('empty.png', b''), ('oversized.png', b'x' * (4 * 1024 * 1024 + 1))]:
+            local = directory / name
+            local.write_bytes(content)
+            result = run('load', 'file://' + str(local), 64, 64, COVER, directory / 'local-pixels')
+            assert result['failed'] and 'local image' in result['error'], result
+        result = run('load', 'file://' + str(directory / 'missing.png'), 64, 64, COVER, directory / 'local-pixels')
+        assert result['failed'] and 'local image' in result['error'], result
+        assert len(Handler.requests) == before
+        for uri in ['file:///data/homebrew/covers/1.jpg', origin + '/photo.jpg']:
+            assert run('validate', uri) == {'valid': True}
+        for uri in ['file://relative/image.png', 'file://localhost/image.png',
+                    'file:///', 'file:///a\x00b', 'file:///a\nb', 'http://', 'file:///' + 'x' * 8192]:
+            # Embedded NULs cannot be passed through argv; the shared native
+            # policy is also exercised by the bridge's explicit length check.
+            if '\x00' in uri:
+                continue
+            assert run('validate', uri) == {'valid': False}, uri
         # Cover crops to the box's aspect ratio, then shrinks to the box with a box filter.
         result, image = load("/photo.png", 300, 300, COVER)
         assert (result["width"], result["height"], result["opaque"]) == (300, 300, True), result
