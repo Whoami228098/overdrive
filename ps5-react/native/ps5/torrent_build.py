@@ -80,8 +80,7 @@ def prepare(sdk, ports, env, build):
         '-DOPENSSL_USE_STATIC_LIBS=TRUE']
     # Keep line information for console crash symbolization without changing optimization.
     cmake += ['-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -gline-tables-only']
-    io_config = ROOT / 'native/shared/torrent_io_config.hpp'
-    cmake += ['-DCMAKE_CXX_FLAGS=-DTORRENT_BROKEN_RANDOM_DEVICE=1 -include "' + str(io_config) + '"']
+    cmake += ['-DCMAKE_CXX_FLAGS=-DTORRENT_BROKEN_RANDOM_DEVICE=1']
     for name, command in [('configure', cmake), ('build', ['cmake', '--build', str(destination), '--target', 'torrent-rasterbar', '--parallel', '6'])]:
         log_path = build / f'torrent-{name}.log'
         with log_path.open('w') as log:

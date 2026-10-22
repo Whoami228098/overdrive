@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <cerrno>
+#include <climits>
 
 std::atomic<unsigned> payload_map_attempts{0}, advice_attempts{0};
 extern "C" void* __real_mmap(void*, std::size_t, int, int, int, off_t);
@@ -226,17 +227,22 @@ int main(int argc, char** argv) {
     check(!torrent::add_magnet("magnet:?", "before start", 0, sandbox.c_str()), "submit before startup accepted");
     const auto seed_path = sandbox / "seed";
     fs::create_directories(seed_path);
-    std::string payload(262144, '\0');
+    // Larger than upstream's default mapping cutoff: the mmap wrapper must
+    // therefore catch a regression in the native backend's no-mapping policy.
+    std::string payload(1048576, '\0');
     for (std::size_t i = 0; i < payload.size(); ++i) payload[i] = char((i * 37 + i / 251) % 256);
     { std::ofstream file(seed_path / "fixture.bin", std::ios::binary); file.write(payload.data(), payload.size()); }
     lt::file_storage storage; storage.add_file("fixture.bin", payload.size());
     lt::create_torrent creator(storage, 16384, lt::create_torrent::v1_only);
-    lt::set_piece_hashes(creator, seed_path.string());
+    lt::settings_pack io_settings;
+    io_settings.set_int(lt::settings_pack::mmap_file_size_cutoff, INT_MAX);
+    io_settings.set_int(lt::settings_pack::disk_write_mode, lt::settings_pack::always_pwrite);
+    lt::set_piece_hashes(creator, seed_path.string(), io_settings, [](lt::piece_index_t) {});
     std::vector<char> metadata; lt::bencode(std::back_inserter(metadata), creator.generate());
     auto info = std::make_shared<lt::torrent_info>(lt::span<char const>(metadata.data(), metadata.size()), lt::from_span);
     std::string key = "v1-";
     for (unsigned char byte : info->info_hashes().v1.to_string()) { key += "0123456789abcdef"[byte >> 4]; key += "0123456789abcdef"[byte & 15]; }
-    lt::settings_pack settings;
+    lt::settings_pack settings(io_settings);
     settings.set_str(lt::settings_pack::listen_interfaces, "127.0.0.1:0");
     settings.set_str(lt::settings_pack::outgoing_interfaces, "127.0.0.1");
     settings.set_str(lt::settings_pack::dht_bootstrap_nodes, "");
