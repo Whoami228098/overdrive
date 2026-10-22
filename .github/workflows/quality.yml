@@ -17,8 +17,15 @@ jobs:
           ref: ${{ inputs.source_ref }}
       - name: Install native test dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 llvm-18 cmake ninja-build build-essential \
+          # The Azure archive mirror can throttle dependency downloads for tens
+          # of minutes. Use Ubuntu's primary HTTPS archive with bounded retries.
+          for source in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends clang-18 llvm-18 cmake ninja-build build-essential \
             libsdl2-dev libgl1-mesa-dev libcurl4-openssl-dev libarchive-dev liblzma-dev \
             libssl-dev zlib1g-dev libarchive-tools ffmpeg nasm pkg-config nodejs npm python3-venv xvfb xauth
           for tool in clang clang++ llvm-config; do
