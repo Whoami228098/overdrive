@@ -9,6 +9,8 @@
   payload checksums, pause/relaunch/resume, invalid-checkpoint recovery,
   nested Unicode files, partial external-peer data and a sparse write above
   4 GiB. Preserve the distinction between those cases and untested formats.
+- Complete the exact-source 90-minute Linux sanitizer soak and a 45-minute
+  console session with periodic controller checks and preserved user state.
 
 ## Overdrive 1.0.12 — invalid optional game text
 

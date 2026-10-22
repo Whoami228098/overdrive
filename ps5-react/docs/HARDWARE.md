@@ -52,6 +52,23 @@ not evidence for other firmware or loader combinations.
 - Each completed test session exited through the host's normal cleanup and
   logged the torrent worker stopping before title closure.
 
+The final clean console session kept the same process for 2,700 seconds.
+All nine periodic controller probes changed the rendered navigation state;
+89 samples showed advancing logs, zero allocation failures and a maximum
+reported heap of 55/256 MiB. Test catalog records, payloads, resume files and
+history were removed, the original user queue was preserved, and no automatic
+input script remains in the image or title data.
+
+Separately, Linux sanitizer run `39731086999` used the exact shared native source
+above with the pinned libtorrent/Boost inputs. It completed 5,450.72 timed
+seconds, 716 checksum-verified transfers, 714 cycles and 327,551 measured API
+calls. All 54 sessions became ready and stopped; maximum API call time was
+0.651 ms on that Linux runner. ASan/UBSan/leak detection were clean, with four
+deliberate negative-case task errors. These source hashes match the PS5 image
+receipt. The complete Linux framework suite also passed in run `39731794554`
+(test source `4a76dca`; only Linux image-allocation fixtures differ from the
+application build source). These are host tests, distinct from console execution.
+
 The previous 1.0.12 image
 `ecbfd79d7ad048cb142772192e14f4cb8aa6a5e7e7a708c634fe9ad2c2f70978`
 reproducibly obtained metadata, then the loader reported
