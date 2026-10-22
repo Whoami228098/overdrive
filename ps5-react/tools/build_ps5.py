@@ -250,6 +250,9 @@ def main():
     if access_client:
         wraps += ["sceNetSocket", "sceNetSetsockopt", "sceNetConnect", "sceNetSend", "sceNetRecv"]
     run([sdk / "bin/prospero-lld", "-L", libs, "-T", native / "ps5-pie.ld", "--eh-frame-hdr",
+         # PS5 lacks this optional libc hook. Null selects libc++abi's existing
+         # pthread-TLS destructor fallback and avoids an unresolvable weak import.
+         "--defsym=__cxa_thread_atexit_impl=0",
          "--version-script", native / "app-symbols.map", "-e", "_start", "-o", pie,
          *[f"--wrap={symbol}" for symbol in wraps], "--undefined=ps5_agc_gate2_run", *objects,
          "--start-group", cross / "liber-software.a", cross / "bridge/liber-bridge-quickjs.a",
