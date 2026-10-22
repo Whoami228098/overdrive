@@ -42,3 +42,15 @@ test('malformed optional mod values cannot throw during numeric coercion', () =>
   assert.equal(catalog.mods[0].version,null);
   assert.equal(catalog.mods[0].coverUrl,null);
 });
+
+test('malformed optional game text cannot crash the real title-page text formatter', () => {
+  const catalog = load({games:[{...game,developer:{},publisher:[],region:{},dub:[],version:{}}]});
+  const fitSource = readFileSync(new URL('../i18n/fit.js',import.meta.url),'utf8').replace(/^export .*;\r?$/gm,'');
+  const context = vm.createContext({});
+  vm.runInContext(fitSource + '\n;globalThis.fit = fitBytes;',context);
+  assert.doesNotThrow(()=>context.fit(catalog.games[0].developer));
+  assert.equal(typeof catalog.games[0].publisher,'string');
+  assert.equal(catalog.games[0].region,null);
+  assert.equal(catalog.games[0].dub,null);
+  assert.equal(catalog.games[0].userReleases[0].version,null);
+});

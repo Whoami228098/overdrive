@@ -1,5 +1,10 @@
 # Changelog
 
+## Overdrive 1.0.12 — invalid optional game text
+
+- Normalize optional developer, publisher and release text before a user game
+  reaches the title page; malformed objects no longer reach the text formatter.
+
 ## Overdrive 1.0.11 — malformed catalog isolation and writable console tests
 
 - Skip malformed mod records without preventing valid user games from loading.

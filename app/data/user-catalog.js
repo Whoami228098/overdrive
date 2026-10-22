@@ -120,6 +120,13 @@ function buildRelease(entry, source, index) {
 // The store's own entry shape: everything state/catalog.js touches must be
 // present and sane, because it normalizes without guards.
 function toGame(entry, catalogDir) {
+  // These optional fields feed labels and rendered text. A malformed optional
+  // value must not survive as an object and crash an otherwise usable game page.
+  entry = { ...entry,
+    region: typeof entry?.region === 'string' ? entry.region : null,
+    dub: typeof entry?.dub === 'string' ? entry.dub : null,
+    version: typeof entry?.version === 'string' ? entry.version : null
+  };
   const title = String(entry.title || '').trim();
   const platform = String(entry.platform || '').trim().toLowerCase();
   if (!title || !PLATFORMS.has(platform)) return null;
@@ -150,8 +157,8 @@ function toGame(entry, catalogDir) {
     user: true,
     providers: releases.map((release) => release.provider),
     direct: true,
-    developer: entry.developer || '',
-    publisher: entry.publisher || '',
+    developer: typeof entry.developer === 'string' ? entry.developer : '',
+    publisher: typeof entry.publisher === 'string' ? entry.publisher : '',
     releaseDate: String(entry.releaseDate || entry.release_date || ''),
     year: Number(entry.year) || null,
     genres: Array.isArray(entry.genres) ? entry.genres.filter((genre) => typeof genre === 'string') : [],
