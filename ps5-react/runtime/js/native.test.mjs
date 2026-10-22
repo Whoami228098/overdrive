@@ -333,7 +333,7 @@ test('browser capture delivers only its result and cancellation rejects as Abort
   }};
   try {
     const capture = BrowserCapture.capture({suffix: '/Game.pkg'});
-    assert.deepEqual(calls, [['https://vikingfile.com/d/', '/Game.pkg', 180]]);
+    assert.deepEqual(calls, [['https://vikingfile.com/d/', '/Game.pkg', 180, [], false]]);
     const states = [];
     const off = capture.subscribe(snapshot => states.push(snapshot.state));
     snapshots = [{id: 1, state: 'capturing'}]; tick();
@@ -341,7 +341,8 @@ test('browser capture delivers only its result and cancellation rejects as Abort
     snapshots = [{id: 1, state: 'completed', url}]; tick();
     assert.equal((await capture.done).url, url);
     assert.deepEqual(states, ['queued', 'capturing', 'completed']); off();
-    const second = BrowserCapture.capture({suffix: '/Other.pkg', timeoutSeconds: 30});
+    const second = BrowserCapture.capture({suffix: '/Other.pkg', timeoutSeconds: 30, rejected: [url], resume: true});
+    assert.deepEqual(calls[1], ['https://vikingfile.com/d/', '/Other.pkg', 30, [url], true]);
     second.cancel(); assert.deepEqual(cancelled, [2]);
     snapshots = [{id: 2, state: 'cancelled'}]; tick();
     await assert.rejects(second.done, {name: 'AbortError'});
