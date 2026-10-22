@@ -44,7 +44,13 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           SDL_AUDIODRIVER: dummy
-        run: xvfb-run -a -s '-screen 0 1920x1080x24' npm test
+        run: |
+          status=0
+          xvfb-run -a -s '-screen 0 1920x1080x24' npm test || status=$?
+          if [ "$status" -ne 0 ]; then
+            find ps5-react/.build -maxdepth 1 -name '*test.log' -print -exec cat {} \;
+          fi
+          exit "$status"
       - name: Save framework evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,3 +61,4 @@ jobs:
             ps5-react/.build/**/*.log
             ps5-react/.build/**/self-test*.json
           if-no-files-found: error
+          include-hidden-files: true
