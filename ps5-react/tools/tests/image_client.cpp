@@ -14,7 +14,9 @@
 #include <string>
 #include <thread>
 #include <vector>
+#if defined(__APPLE__)
 #include <malloc/malloc.h>
+#endif
 
 // The loader's own allocations (bodies, stb_image buffers, pixels) bind to these, not libc's, so
 // IMAGE_FAIL_LARGE_MS can refuse every allocation of 128 KiB or more for that many milliseconds
@@ -29,6 +31,7 @@ bool refused(std::size_t size) {
   return size >= 128 * 1024 && (until < 0 || (until > 0 && now_ms() < until));
 }
 } // namespace
+#if defined(__APPLE__)
 extern "C" void* malloc(std::size_t size) { return refused(size) ? nullptr : malloc_zone_malloc(malloc_default_zone(), size); }
 extern "C" void* calloc(std::size_t count, std::size_t size) {
   return refused(count * size) ? nullptr : malloc_zone_calloc(malloc_default_zone(), count, size);
@@ -36,6 +39,20 @@ extern "C" void* calloc(std::size_t count, std::size_t size) {
 extern "C" void* realloc(void* address, std::size_t size) {
   return refused(size) ? nullptr : malloc_zone_realloc(malloc_default_zone(), address, size);
 }
+#elif defined(__linux__)
+// GNU ld wraps allocations in these fixture translation units, while shared
+// system libraries keep their allocator, as the macOS fixture does above.
+extern "C" void* __real_malloc(std::size_t);
+extern "C" void* __real_calloc(std::size_t, std::size_t);
+extern "C" void* __real_realloc(void*, std::size_t);
+extern "C" void* __wrap_malloc(std::size_t size) { return refused(size) ? nullptr : __real_malloc(size); }
+extern "C" void* __wrap_calloc(std::size_t count, std::size_t size) {
+  return refused(count * size) ? nullptr : __real_calloc(count, size);
+}
+extern "C" void* __wrap_realloc(void* address, std::size_t size) {
+  return refused(size) ? nullptr : __real_realloc(address, size);
+}
+#endif
 
 namespace {
 std::vector<std::uint32_t> evicted;

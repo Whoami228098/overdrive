@@ -97,11 +97,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def compile_client(directory):
     binary = directory / "client"
+    allocator = ["-Wl,--wrap=malloc", "-Wl,--wrap=calloc", "-Wl,--wrap=realloc"] if sys.platform.startswith("linux") else []
     subprocess.run(["clang++", "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread",
                     "-I", str(ROOT / "native/shared"), "-I", str(stb_image()),
                     str(ROOT / "tools/tests/image_client.cpp"), str(ROOT / "native/shared/image_loader.cpp"),
                     str(ROOT / "native/shared/network.cpp"), str(ROOT / "native/desktop/network_platform.cpp"),
-                    "-lcurl", "-lcrypto", "-o", str(binary)], check=True)
+                    *allocator, "-lcurl", "-lcrypto", "-o", str(binary)], check=True)
     return binary
 
 
