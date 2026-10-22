@@ -9,7 +9,7 @@ import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {test} from 'node:test';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const er = process.env.PS5_REACT_ER ?? resolve(here, '../../../.deps/embeddedReact');
@@ -54,7 +54,7 @@ async function load() {
   globalThis.screen ??= {width: 1280, height: 720};
   const file = join(mkdtempSync(join(tmpdir(), 'motion-labels-')), 'bundle.mjs');
   writeFileSync(file, result.outputFiles[0].text);
-  return import(file);
+  return import(pathToFileURL(file).href);
 }
 
 /** A legacy root (as the bridge uses) with a DevTools hook that counts rendered motion elements. */
