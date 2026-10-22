@@ -18,12 +18,18 @@ on:
         description: Save symbols without updating draft releases or building PS4
         type: boolean
         default: false
+      host_soak_minutes:
+        description: Run only the host soak instead of a console build (empty disables)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   ps5:
+    if: ${{ inputs.host_soak_minutes == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -145,8 +151,15 @@ jobs:
           gh release view "$tag" --json isDraft,tagName,assets \
             --jq '"\(.tagName) draft=\(.isDraft) " + ([.assets[] | "\(.name) \(.size)"] | join(", "))'
 
+  host-soak:
+    if: ${{ inputs.host_soak_minutes != '' }}
+    uses: ./.github/workflows/torrent-soak.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+      minutes: ${{ inputs.host_soak_minutes }}
+
   ps4:
-    if: ${{ !inputs.diagnostic_only }}
+    if: ${{ !inputs.diagnostic_only && inputs.host_soak_minutes == '' }}
     needs: ps5
     runs-on: ubuntu-24.04
     timeout-minutes: 60
