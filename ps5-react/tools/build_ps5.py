@@ -256,7 +256,10 @@ def main():
          cross / "bridge/engine/libembedded-react.a", cross / "_deps/quickjs-build/libqjs.a",
          gl / "lib/libPS5OpenGL.a", libs / "libunwind.a", libs / "libc++abi.a", libs / "libc++.a",
          *torrent["libraries"], *video_libs, *network_libs, *archive_libs, builtins, "--end-group", *video_stubs, "--as-needed", *agc_stubs,
-         *sorted(libs.glob("*.so"))],
+         *sorted(libs.glob("*.so")),
+         # SDK compatibility fallbacks (including C-locale APIs used by libc++).
+         # Keep these after the module stubs so existing imports take precedence.
+         libs / "libc.a"],
         env=env, log=BUILD / "link.log")
     elf = BUILD / "eboot.elf"
     run([host_tool, "link", "--in", pie, "--out", elf, "--stub-dir", libs,
