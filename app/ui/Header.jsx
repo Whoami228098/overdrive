@@ -21,7 +21,7 @@ import { NavItem } from './NavItem.jsx';
 import { NavPill, useNavLayouts } from './NavPill.jsx';
 import { useSections } from './useSections.js';
 import { VERSION } from '../version.js';
-import { FocusScope, Text, View } from '@ps5-react/core';
+import { FocusScope, Text, View, useControllerEvents } from '@ps5-react/core';
 
   var BADGE = /* @__PURE__ */ (0, jsx)(DownloadsBadge, {});
   function Header({ children }) {
@@ -47,8 +47,11 @@ import { FocusScope, Text, View } from '@ps5-react/core';
     const onlyGenre = filters.genre.length === 1 && activeCount(filters) === 1 && filters.genre[0];
     const down = top.name === "browse" ? "page" : top.name === "homebrew" ? "homebrew-page" : "screen";
     const toastAction = (0, useRef)(null);
+    // Stick clicks arrive through the controller state, outside the focus actions.
+    useControllerEvents(event => {
+      if (event.type === 'press' && event.button === 'r3') toggleMusic();
+    });
     const onAction = (action) => {
-      if (action === "r3") return toggleMusic();
       if (action === "r2" && toastAction.current) {
         toastAction.current();
         return true;

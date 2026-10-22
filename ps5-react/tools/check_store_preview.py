@@ -94,6 +94,14 @@ def main():
             press('nav:music');shot('03-paused')
             if not any('Paused' in x.get('text','') for x in records()):raise RuntimeError('Pause UI not shown')
             press('nav:music')
+            # Use the same stick-button state path as a real DualSense, not a focus action.
+            if send('hold r3 150')!='ok':raise RuntimeError('R3 input refused')
+            wait(.5)
+            if not any('Paused' in x.get('text','') for x in records()):raise RuntimeError('R3 did not pause music')
+            if send('hold r3 150')!='ok':raise RuntimeError('R3 resume input refused')
+            wait(.5)
+            if any('Paused' in x.get('text','') for x in records()):raise RuntimeError('R3 did not resume music')
+            actions.extend(['controller:r3:pause','controller:r3:resume'])
             # The index page is present even when the store's built-in catalog is empty.
             press('card:CUSA99999');shot('04-game')
             press('mods:CUSA99999');shot('05-mods')
