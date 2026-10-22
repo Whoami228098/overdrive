@@ -81,14 +81,23 @@ workflow can call it with `host_soak_minutes` set to `0` or `90`; console build
 and release jobs are skipped in that mode.
 
 The worker owns the session/alerts and exposes bounded submission and snapshots.
-It explicitly selects `posix_disk_io_constructor`, the upstream portable C file
-backend, and logs `session disk backend=posix`. The 1.0.12 console fixture
-obtained metadata, then the loader terminated `libtorrent-disk-thread` with
-`SYSTEM_ILLEGAL_FUNCTION_CALL` during the first payload writes through the
-default memory-mapped backend. The same fixture completed with matching
-checksums under 1.0.13's POSIX backend, including pause/relaunch/resume. Simple
-standalone file mappings do work on that console; the exact prohibited
-operation in the full backend remains unidentified. See
+Version 1.0.16 uses upstream's threaded disk backend with `pread`/`pwrite`,
+allowing disk work to overlap peer traffic. It sets `always_pwrite`, sparse
+storage and a mapping cutoff of `INT_MAX` 16 KiB blocks; metadata rejects
+individual files above that approximately 32 TiB boundary. Accepted payload
+files therefore stay below the mapping cutoff. The post-platform configuration
+header disables `madvise`/`fadvise` in both the library and adapter builds.
+The pinned-source host harness rejects and counts file-backed mappings and
+memory-advice calls while transferring payloads above the upstream default
+cutoff. Startup logs identify `backend=threaded-pread-pwrite payload_mmap=0`.
+
+Set `TORRENT_PORTABLE=1` in the runtime environment to select the earlier
+`posix_disk_io_constructor` fallback. That backend performs disk work on the
+background session/network thread instead of using the asynchronous disk pools.
+Version 1.0.12's unrestricted default backend failed on the console at its first
+payload writes with `SYSTEM_ILLEGAL_FUNCTION_CALL`; 1.0.13's POSIX path passed
+the same fixture. This does not establish that arbitrary payload mappings or
+advice calls are supported. See
 [`docs/HARDWARE.md`](../../../docs/HARDWARE.md) for the exact image, firmware,
 loader and scope, including external peer data and a verified write above 4 GiB.
 The host schedules it at startup before loading JS, without waiting for session
@@ -96,13 +105,12 @@ initialization. JS add/control calls never start or join a worker. Each queued
 add carries its own save root; directory and resume work run on the worker.
 Session lifecycle and add ids are written through the PS5 async logger. A blocked
 session constructor or metadata request cannot hold the submission/snapshot lock.
-Listeners use IPv4 ports 6881–6889. Connections are capped at 64, the send watermark
-at 256 KiB, disk workers at 2, and hashing workers at 1. The optional PS5 network
-pool is 4 MiB instead of the HTTP-only 1 MiB. The explicit POSIX backend performs
-its disk work on the background session thread; the configured asynchronous
-disk/hash thread counts apply to upstream backends that use those pools.
-These are resource limits, not a
-measured throughput claim. The app still runs one queue transfer at a time.
+Listeners use IPv4 ports 6881–6889. Connections are capped at 128, connection
+attempts at 40 per second, the send watermark at 256 KiB, disk workers at four,
+hashing workers at one, and pending disk writes at 8 MiB. The optional PS5 network
+pool is 4 MiB instead of the HTTP-only 1 MiB. Download bandwidth is unlimited.
+These settings bound resource use; they do not guarantee remote-peer bandwidth.
+The app still runs one queue transfer at a time.
 
 Each torrent's payload is isolated under `saveRoot/downloads/torrents/<info-hash>`.
 Fast-resume data is separate in `.resume`. Metadata paths and existing symlinks
@@ -112,7 +120,11 @@ closed disk handles and a flushed resume save. Periodic checkpoints run every
 piece-hash recheck. Empty torrents and unsafe metadata fail explicitly.
 
 The queue routes completed PKGs, mountable images, game folders and archives
-through its existing install/mount/extract handling. Other files remain available
+through its existing install/mount/extract handling. Published unpacked PS5
+folders receive the executable permissions used by the archive path. ShadowMount
+may defer registration while the store is running: close the store after a
+completed download so its requested scan can finish. Supported images need no
+invented conversion step. Other files remain available
 in their torrent folder. Cancelling releases the native handle before queue
 cleanup deletes partial files. Only the requested job's hash directory and
 resume file belong to that job.

@@ -1,5 +1,76 @@
 # Hardware evidence
 
+## Overdrive 1.0.16 covers, torrent I/O and PS5 installation — 2026-10-22
+
+User-authorized testing of `PPSA99058`, Normal mode, source
+`cc31c847380680f4df8836759d587a8cb8851b0e`, console build `39822913344`.
+The image was uploaded and read back with matching SHA-256
+`f032418ca02494cf060ad4edf641796ec92b108d113afd268ef68dd26538a2d5`.
+The console reports firmware `13.590.001`; ShadowMount+ identifies itself as
+`1.7-beta5fix1`, build `2026-10-10T18:39:01Z`. Results apply to this combination.
+
+- Required imports: 453 checked, zero unresolved; one optional EDID address
+  remains guarded. Normal mode initialized the threaded `pread`/`pwrite` backend
+  with payload mappings disabled, then loaded the bundle and presented a frame.
+- The complete user catalog contains 4,118 normalized cards, including 3,602 PS4
+  and 516 PS5 cards, and 4,184 cover files. Console framebuffer captures show
+  actual PS4/PS5 art and the Hades user-game page (`PPSA03355`). Opening that page
+  produced its matching ready event without any `add_magnet` call. The fix gives
+  fixed-size cover images initial dimensions and accepts absolute local image
+  URIs. Eleven WebP covers were converted to PNG and one oversized JPEG resized;
+  records without source art still use a placeholder. Native image loading is
+  asynchronous; local files are not unnecessarily prewarmed across the library.
+- A controlled single LAN peer transferred an owned 512 MiB torrent. The title
+  exited after 69,222,400 persisted bytes, saved its checkpoint, relaunched and
+  completed. Independent full-file readback matched SHA-256
+  `a528fedfe4d83efde2836edfed2e4ebc9c8045c3e68a19c9cd94d72be5bdc32c`.
+  Maximum reported payload speed was 11.616556 MB/s; median positive sampled
+  speed was 10.643265 MB/s. The earlier POSIX profile peaked at 10.945157 MB/s
+  with the same fixture. Separate FTP probes reached 25.23 MB/s toward the
+  console. These measurements do not establish a public-swarm speed guarantee
+  or identify every remaining throughput constraint.
+- A sparse owned torrent wrote its 1 MiB tail at offset 5,368,709,120. The
+  independently read tail matched SHA-256
+  `b3dcbbbf60d44776da1cd235ddf135e6d81c52bee673ef0cdf2a14232bb1dbab`.
+  Logical size was 5 GiB + 1 MiB; the preceding 5 GiB were not downloaded.
+- Record of Lodoss War (`PPSA05347`) downloaded 176,081,223 bytes from its user
+  release, extracted its RAR, applied executable permissions and published its
+  folder. ShadowMount registered it after the store exited. Its launch returned
+  `0xc018`, the loader reported PID 333, and all 90 one-second process samples
+  found it running. The loader's 60-second error monitor expired without an
+  error. The test then explicitly closed that title. The source RAR had already
+  been removed by successful extraction, so it was not independently rehashed.
+- The same folder-permission/publishing code first passed two actual PS5 cases
+  on 1.0.14: Dreaming Sarah (`PPSA02929`, RAR to folder, 89 positive process
+  samples) and Animal Well (`PPSA22520`, compressed `ffpfsc` image, 101 samples).
+  Animal Well's complete published image matched all 838 source torrent piece
+  hashes and SHA-256
+  `17d74b91f326a9e84ceb98f1d71020940da658ae3e545663508fb701498cfce3`.
+  No converter was required for these supported image/folder cases. Process
+  survival and loader results do not establish visual gameplay validation or
+  compatibility with every game, archive or firmware.
+- Only the two owned synthetic payloads/checkpoints were removed. Existing user
+  jobs and the three completed game installations were retained. No automatic
+  input script remains; the live command file is cleared after the check.
+
+Exact-source Linux run `39822918192` passed 613.728 timed seconds with the pinned
+libtorrent/Boost inputs, ASan/UBSan and leak detection: 35 checksum-verified
+transfers, 33 repeated cycles, 37,859 API calls and five complete session
+lifecycles. Maximum measured API call time was 435 microseconds on that runner.
+The instrumented harness counted zero file-backed mapping attempts and zero
+`madvise` calls; the configuration header appears in both upstream and adapter
+compile commands. All three native source hashes match the final source.
+These host results are separate from console execution.
+
+The final build also passed 44 application/queue tests, 98 runtime JS tests and
+seven import/provider tests. Its 4,010 packaged files, 54 changed source hashes
+and executable text against the unstripped ELF were verified. The full Linux
+framework suite passed at `82ffc86` in run `39816687933`; its native image-loader
+code is unchanged in this artifact, while the later cover component has its own
+application integration regression. The corresponding source archive matches
+all 4,617 Git blobs of `cc31c84`. The immutable build receipt keeps its earlier
+`hardware_tested: false`; this section records the later scoped hardware work.
+
 ## Overdrive 1.0.13 startup and torrent data path — 2026-10-22
 
 User-authorized testing of title `PPSA99058`, Normal mode, source

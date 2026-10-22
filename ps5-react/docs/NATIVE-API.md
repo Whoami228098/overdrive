@@ -717,7 +717,9 @@ Completion returns verified `files: [{path, size}]`. The app queue routes the
 result to existing package/image/archive handling. Existing HTTP downloads use
 their original backend. Data lives under `saveRoot/downloads/torrents/<hash>`;
 fast-resume files are separate in `.resume`. There is no PS4 executable: this is
-the PS5 host downloading PS4 or PS5 game payloads. Console execution is unverified.
+the PS5 host downloading PS4 or PS5 game payloads. Exact-artifact console results
+and their limits are recorded in [Hardware evidence](HARDWARE.md); they do not
+qualify every release format or firmware.
 
 The native C++ interface and state codes are in `native/shared/torrent_api.hpp`.
 The pinned source manifest is `native/ps5/torrent/dependencies.lock.json`.
