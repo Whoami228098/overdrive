@@ -85,11 +85,27 @@ target_link_libraries(native-soak PRIVATE ''' + ('PkgConfig::HOST_LT' if args.sy
          '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON', *([] if args.system_library else
          ['-DBoost_INCLUDE_DIR=' + str(boost), '-DBOOST_INCLUDEDIR=' + str(boost)])], output / 'configure.log')
     run(['cmake', '--build', str(build), '--parallel', '2'], output / 'compile.log')
+    compilation = json.loads((build / 'compile_commands.json').read_text())
+    (output / 'compile-commands.json').write_text(json.dumps(compilation, indent=2) + '\n')
+    native_command = next(c['command'] for c in compilation if Path(c['file']).resolve() == source / 'torrent_api.cpp')
+    for flag in ('-fsanitize=address,undefined', '-DTORRENT_BROKEN_RANDOM_DEVICE=1', '-DTORRENT_MINIMAL=1'):
+        if flag not in native_command:
+            raise RuntimeError('Missing native test compile flag: ' + flag)
+    if not args.system_library:
+        random_command = next(c['command'] for c in compilation if Path(c['file']).resolve() == upstream / 'src/random.cpp')
+        if not all(flag in random_command for flag in ('-fsanitize=address,undefined', '-DTORRENT_BROKEN_RANDOM_DEVICE=1', str(boost))):
+            raise RuntimeError('Libtorrent sanitizer/entropy/Boost inputs differ from the test recipe')
+        libraries = list(build.rglob('libtorrent-rasterbar.a'))
+        if len(libraries) != 1:
+            raise RuntimeError('Missing or ambiguous host libtorrent archive')
     manifest = {'native_source_commit': commit, 'native_sources': inputs,
         'test_code_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'test_harness_sha256': sha(harness), 'dependency_lock_sha256': sha(lock),
         'pinned_libtorrent': json.loads(pinned)['libtorrent'], 'minutes_requested': args.minutes,
         'libtorrent_build': 'system-smoke-only' if args.system_library else 'pinned-source-sanitized',
+        'host_binary_sha256': sha(build / 'native-soak'),
+        'host_libtorrent_archive_sha256': None if args.system_library else sha(libraries[0]),
+        'compile_commands_sha256': sha(output / 'compile-commands.json'),
         'platform': 'Linux host', 'sanitizers': ['address', 'undefined'], 'hardware_tested': False,
         'openssl_host_version': subprocess.check_output(['openssl', 'version'], text=True).strip()}
     (output / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
