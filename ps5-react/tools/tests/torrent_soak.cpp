@@ -7,6 +7,7 @@
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/bencode.hpp>
 #include <libtorrent/torrent_info.hpp>
+#include <libtorrent/peer_class.hpp>
 #include <openssl/sha.h>
 #include <algorithm>
 #include <atomic>
@@ -202,6 +203,11 @@ int main(int argc, char** argv) {
     settings.set_bool(lt::settings_pack::enable_upnp, false); settings.set_bool(lt::settings_pack::enable_natpmp, false);
     settings.set_int(lt::settings_pack::upload_rate_limit, 65536);
     lt::session seeder(settings);
+    // Local peers bypass the global rate class by default. Limit their own
+    // class so the pause case cannot race a completed loopback transfer.
+    auto local = seeder.get_peer_class(lt::session::local_peer_class_id);
+    local.upload_limit = 65536;
+    seeder.set_peer_class(lt::session::local_peer_class_id, local);
     wait_for([&] { return seeder.listen_port() != 0; }, "loopback seed listener");
     lt::add_torrent_params params; params.ti = info; params.save_path = seed_path.string();
     params.flags &= ~(lt::torrent_flags::paused | lt::torrent_flags::auto_managed); params.flags |= lt::torrent_flags::seed_mode;
