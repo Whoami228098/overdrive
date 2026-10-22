@@ -65,7 +65,7 @@ struct Decoder {
   bool open(const std::string& path) {
     fd = ::open(path.c_str(), O_RDONLY);
     if (fd < 0) return false;
-    initialized = drmp3_init(&mp3, read, seek, tell, this, nullptr);
+    initialized = drmp3_init(&mp3, read, seek, tell, nullptr, this, nullptr);
     return initialized && (mp3.channels == 1 || mp3.channels == 2) &&
            mp3.sampleRate >= 8000 && mp3.sampleRate <= 48000;
   }
