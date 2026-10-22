@@ -208,6 +208,9 @@ void run() noexcept {
     settings.set_int(lt::settings_pack::connection_speed, 40);
     settings.set_int(lt::settings_pack::torrent_connect_boost, 48);
     settings.set_int(lt::settings_pack::download_rate_limit, 0);
+    // The console defaults to a 64 KiB TCP receive buffer. A bounded larger
+    // window avoids starving a fast peer between reads; the OS may clamp it.
+    settings.set_int(lt::settings_pack::recv_socket_buffer_size, 512 * 1024);
     settings.set_int(lt::settings_pack::send_buffer_watermark, 256 * 1024);
     settings.set_int(lt::settings_pack::aio_threads, 4);
     settings.set_int(lt::settings_pack::hashing_threads, 1);
@@ -225,7 +228,7 @@ void run() noexcept {
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage | lt::alert_category::connect);
     trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
-    trace("session throughput connections=128 connect_per_second=40 disk_threads=4 queued_disk=8388608 download_limit=0");
+    trace("session throughput connections=128 connect_per_second=40 disk_threads=4 queued_disk=8388608 recv_socket_buffer=524288 download_limit=0");
     // Keep the proven portable path available for diagnosis. The default
     // threaded backend overlaps disk work with network I/O, but the cutoff and
     // file-size validation above prevent every accepted payload file mapping.

@@ -109,6 +109,10 @@ Listeners use IPv4 ports 6881–6889. Connections are capped at 128, connection
 attempts at 40 per second, the send watermark at 256 KiB, disk workers at four,
 hashing workers at one, and pending disk writes at 8 MiB. The optional PS5 network
 pool is 4 MiB instead of the HTTP-only 1 MiB. Download bandwidth is unlimited.
+Peer sockets request a bounded 512 KiB receive buffer; the operating system may
+clamp it. A separate owned console stream probe found a 64 KiB default and a
+512 KiB effective cap, with faster transfers using the larger receive window.
+That probe does not itself establish BitTorrent throughput.
 These settings bound resource use; they do not guarantee remote-peer bandwidth.
 The app still runs one queue transfer at a time.
 

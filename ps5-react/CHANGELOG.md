@@ -1,5 +1,12 @@
 # Changelog
 
+## Overdrive 1.0.17 — bounded peer receive window
+
+- Request a 512 KiB receive buffer for peer sockets instead of relying on the
+  console's 64 KiB default, and log that request with the throughput profile.
+- Keep the existing payload mapping restrictions, disk queue limits and worker
+  lifecycle. The operating system may clamp the requested socket buffer.
+
 ## Overdrive 1.0.16 — overlapping torrent disk and network I/O
 
 - Use upstream's threaded disk backend with normal `pread`/`pwrite` operations
