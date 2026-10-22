@@ -8,7 +8,14 @@
 // PKG installation through the console's app-install service, one package at a time.
 namespace packages {
 // `status`: the console's install stage ("transferring", "promoting", "playable").
-struct Snapshot { std::uint32_t id = 0; std::string state = "queued", error, content_id, status; std::uint64_t written = 0, total = 0; };
+struct Snapshot {
+  std::uint32_t id = 0;
+  std::string state = "queued", error, content_id, status;
+  std::uint64_t written = 0, total = 0;
+  // PS4 local request and system BGFT identities are separate; BGFT zero is valid.
+  std::int64_t bgft_id = -1;
+  bool ready = true;
+};
 std::uint32_t install(std::string path, std::string name, std::string& error);
 // Stops reporting; an install the console already accepted carries on.
 void cancel(std::uint32_t id);
