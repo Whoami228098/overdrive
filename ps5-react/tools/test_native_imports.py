@@ -62,6 +62,26 @@ int main() { return !ps5_react_audit_imports(log) && found && counted && called 
             str(audit), str(driver), '-Wl,--defsym=fixture_missing=0', '-o', str(executable)], check=True)
         subprocess.run([str(executable)], check=True, timeout=10)
 
+    def test_runtime_audit_checks_real_symbol_behind_linker_wrapper(self):
+        audit = self.root / 'wrapped-audit.cpp'
+        audit.write_text(audit_source([{'name': 'fixture_missing', 'type': 2}], ['fixture_missing']))
+        driver = self.root / 'wrapped-driver.cpp'
+        driver.write_text('''#include <cstring>
+unsigned called = 0; bool found = false, counted = false;
+extern "C" void __wrap_fixture_missing() { ++called; }
+extern "C" bool ps5_react_audit_imports(void (*)(const char*));
+void log(const char* text) {
+  if (std::strstr(text, "NULL symbol=fixture_missing")) found = true;
+  if (std::strstr(text, "checked=1 unresolved=1")) counted = true;
+}
+int main() { return !ps5_react_audit_imports(log) && found && counted && called == 0 ? 0 : 1; }
+''')
+        executable = self.root / 'wrapped-audit-test'
+        subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror', '-no-pie', '-fno-builtin',
+            str(audit), str(driver), '-Wl,--wrap=fixture_missing', '-Wl,--defsym=fixture_missing=0',
+            '-o', str(executable)], check=True)
+        subprocess.run([str(executable)], check=True, timeout=10)
+
 
 if __name__ == '__main__':
     unittest.main()

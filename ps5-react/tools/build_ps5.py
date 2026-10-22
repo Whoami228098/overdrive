@@ -286,7 +286,7 @@ def main():
         raise RuntimeError('Expected native dynamic imports in the linked PS5 ELF')
     for attempt in range(3):
         verify_providers(entries, [*sdk_stubs, *agc_stubs, *video_stubs])
-        audit_cpp.write_text(audit_source(entries))
+        audit_cpp.write_text(audit_source(entries, wraps))
         compile_audit()
         run(link_command, env=env, log=BUILD / "link.log")
         final_entries = native_imports(pie)
@@ -298,6 +298,7 @@ def main():
         raise RuntimeError('Native import audit did not stabilize after relinking')
     verify_providers(entries, [*sdk_stubs, *agc_stubs, *video_stubs])
     (BUILD / "native-imports.json").write_text(json.dumps({'imports': entries,
+        'wrapped_imports': [s['name'] for s in entries if s['name'] in wraps],
         'sdk_providers_verified': True, 'runtime_addresses_verified': False,
         'private_webkit_random_imports': False}, indent=2) + "\n")
     elf = BUILD / "eboot.elf"

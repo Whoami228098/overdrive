@@ -11,6 +11,7 @@
   `random_device`, which imported `arc4random` from a private WebKit module.
   Reject those imports at build time and check every final native import address
   without calling it before starting the torrent worker on the console.
+  For linker-wrapped calls, check the real provider rather than the wrapper.
 
 ## Unreleased — user game pages and torrent startup
 

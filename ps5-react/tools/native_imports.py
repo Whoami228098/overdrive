@@ -41,8 +41,9 @@ def imports(path):
     return sorted((s for s in symbols(path) if not s['defined']), key=lambda s: s['name'])
 
 
-def audit_source(entries):
+def audit_source(entries, wrapped=()):
     """No imported function is called. Volatile reads keep null checks observable."""
+    wrapped = set(wrapped)
     lines = ['using Address = void (*)();',
              'struct Import { const char* name; Address volatile address; };']
     for i, symbol in enumerate(entries):
@@ -50,7 +51,10 @@ def audit_source(entries):
         if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.$@]*', name):
             raise ValueError('Unsupported native import name: ' + name)
         declaration = f'void import_{i}()' if symbol['type'] != 1 else f'unsigned char import_{i}'
-        lines.append(f'extern "C" {declaration} asm({json.dumps(name)});')
+        # --wrap also redirects function-address relocations. Probe the actual
+        # provider through __real_, rather than accepting our non-null wrapper.
+        target = '__real_' + name if name in wrapped else name
+        lines.append(f'extern "C" {declaration} asm({json.dumps(target)});')
     lines.append('static const Import imports[] = {')
     for i, symbol in enumerate(entries):
         lines.append('  {' + json.dumps(symbol['name']) + f', reinterpret_cast<Address>(&import_{i})' + '},')

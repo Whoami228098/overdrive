@@ -45,7 +45,10 @@ Before session startup the generated runtime audit reads every import address,
 logs null symbols and `native imports checked=N unresolved=M`, and refuses the
 torrent startup if M is nonzero. Build-time provider checks alone cannot prove
 the firmware loader supplied an address; this runtime result requires a console
-test. No imported function is called by the audit.
+test. For linker-wrapped imports the audit uses the linker's `__real_` reference,
+so a wrapper's address cannot hide a missing system import. A host regression
+test covers a non-null wrapper around a deliberately null real symbol. No
+imported function is called by the audit.
 
 The worker owns the session/alerts and exposes bounded submission and snapshots.
 The host schedules it at startup before loading JS, without waiting for session
