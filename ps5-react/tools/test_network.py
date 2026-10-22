@@ -267,7 +267,7 @@ def compile_client(directory):
     subprocess.run(["clang++", "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread",
                     "-I", str(ROOT / "native/shared"), str(ROOT / "tools/tests/network_client.cpp"),
                     str(ROOT / "native/shared/network.cpp"), str(ROOT / "tools/tests/network_test_platform.cpp"),
-                    "-lcurl", "-o", str(binary)], check=True)
+                    "-lcurl", "-lcrypto", "-o", str(binary)], check=True)
     return binary
 
 
