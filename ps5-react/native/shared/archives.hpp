@@ -47,5 +47,8 @@ int start_rar_worker(const std::string& request, std::string& error);
 // Bytes of its output; 0 at its end, -1 when none came within about a quarter second or on an error.
 long read_rar_worker(int stream, char* data, std::size_t size);
 void cancel_rar_worker(int stream);
-void close_rar_worker(int stream);
+void close_rar_worker(int stream, bool keep_running = false);
+// PS5 payloads retain a journal and continue after the UI disconnects. The
+// desktop enables the same path with ARCHIVE_DURABLE=1 for restart tests.
+bool durable_workers();
 }

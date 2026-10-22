@@ -8,7 +8,8 @@
 import { Torrent } from '@ps5-react/core';
 import { INCOMPLETE_PART, STALE_PARTIAL, cause } from '../downloads/errors.js';
 import { t } from '../i18n/core.js';
-import { archivePassword } from './archive-password.js';
+import { archivePassword, refreshArchiveMetadata } from './archive-password.js';
+import { chooseTorrentArchive } from './torrent-archives.js';
 import { BrowserRequired, archiveRefusal, cancellation, createSourceResolver, sourceKind, torrentKey, webURL } from './download-sources.js';
 import { LINK_PREFIX, captureAnchor, linkForLog, otherSourceLink, validateCapturedLink } from './browser-links.js';
 import { readJSON } from './read-json.js';
@@ -209,21 +210,22 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     for (const job2 of jobs) {
       if (job2.state !== "file-downloaded" || job2.artifact?.nextAction !== "downloaded" || !/[.](?:binary|bin)$/i.test(job2.downloadDestination || "")) continue;
       const before = job2.artifact;
-      try {
-        if (!fs.exists(job2.downloadDestination)) continue;
-        // At launch nothing is downloading yet, so the synchronous read does not wait on the drive.
-        route(job2, archives?.inspect?.([job2.downloadDestination]));
+      void wait(0).then(async () => {
+        if (!fs.exists(job2.downloadDestination)) return;
+        const found = await headers([job2.downloadDestination], "restore-finished");
+        if (!jobs.includes(job2) || job2.state !== "file-downloaded") return;
+        route(job2, found);
         if (!["shadowmount", "installer-required"].includes(job2.artifact.nextAction)) {
           job2.artifact = before;
-          continue;
+          return;
         }
         job2.state = job2.artifact.nextAction === "shadowmount" ? "downloaded" : "installer-required";
         console.log(`[download-queue] ${job2.id}: a finished ".binary" is now ${job2.downloadDestination}`);
         change();
-      } catch (error2) {
-        if (!job2.routing) job2.artifact = before;
+      }).catch((error2) => {
+        if (!job2.routing && job2.state === "file-downloaded") job2.artifact = before;
         console.log(`[download-queue] ${job2.id}: a finished ".binary" stays as it is: ${error2.message}`);
-      }
+      });
     }
     // An archive's image published before 1.0.7 stayed inside "<homebrew>/<name>-extracted/", where
     // ShadowMount+ never looks (issue #42): it moves to the homebrew folder itself, once at launch.
@@ -527,10 +529,21 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       }
     }
     async function executeTorrent(job2, signal) {
+      if (releasesOf) refreshArchiveMetadata(job2.release,releasesOf(job2.gameId),url=>/^magnet:/i.test(url)?torrentKey(url):url);
+      const destination = torrentDirectory(job2.release, job2.root);
+      // A native completion already recorded these exact files. Reopening an
+      // extraction follows its worker directly, even without network access;
+      // it does not re-add, recheck or download the torrent again.
+      if (job2.artifact.nextAction === "extraction-required" && job2.torrentFiles?.length) {
+        storageIdentity(job2);
+        if (signal.aborted) throw new Error("Cancelled.");
+        console.log(`[download-queue] ${job2.id}: reconnecting saved extraction; torrent transfer skipped`);
+        await finishTorrent(job2, job2.torrentFiles, destination);
+        return;
+      }
       if (!torrents?.available) throw new Error("This host was built without the torrent engine.");
       const resolved = await sources.resolve(job2.release, { signal });
       if (signal.aborted) throw new Error("Cancelled.");
-      const destination = torrentDirectory(job2.release, job2.root);
       const identity = storageIdentity(job2);
       if (!job2.rootIdentity) job2.rootIdentity = identity;
       if (fs.diskUsage(job2.root).free < stillNeeded(job2) + MARGIN2)
@@ -562,6 +575,9 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       finally { off(); signal.removeEventListener("abort", abort); }
       storageIdentity(job2);
       const files = result.files || [];
+      await finishTorrent(job2, files, destination);
+    }
+    async function finishTorrent(job2, files, destination) {
       if (!files.length) throw new Error("Torrent completed without payload files.");
       for (const file of files) {
         if (!file.path.startsWith(destination + "/") || file.path.split("/").includes(".."))
@@ -574,6 +590,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       job2.bytesPerSecond = 0;
       const images = files.filter(file => /\.(ffpfsc|ffpfs|ffpkg|exfat)$/i.test(file.path));
       const packaged = files.filter(file => /\.(pkg|fpkg)$/i.test(file.path));
+      const nativePs5 = job2.platform === "ps5" || job2.release.platform === "ps5" || /^PPSA\d{5}$/.test(job2.titleId || job2.gameId);
+      const {folder, beside} = findGame(job2, destination);
+      const archive = chooseTorrentArchive(files,job2.titleId || job2.gameId,
+        job2.release.archiveFile ? `${destination}/${job2.release.archiveFile}` : null);
       if (images.length) {
         const targets = publishedImages(job2, images.map(file => file.path));
         if (targets.some(target => fs.exists(target))) throw new Error("Destination already exists; preserve it and inspect before retrying.");
@@ -583,14 +603,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         job2.artifact.nextAction = "shadowmount";
         job2.artifact.destination = targets[0];
         job2.state = "downloaded";
-      } else if (packaged.length) {
-        job2.packages = packaged.map(file => file.path);
-        job2.output = destination;
-        job2.artifact.nextAction = "installer-required";
-        job2.state = "installer-required";
-      } else {
-        const {folder, beside} = findGame(job2, destination);
-        if (folder) {
+      } else if (folder) {
           noteTitle(job2, titleIn(folder));
           const target = `${job2.root}/homebrew/${folderName(job2.release)}-app`;
           if (fs.exists(target)) throw new Error("Destination already exists; preserve it and inspect before retrying.");
@@ -602,18 +615,22 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           job2.artifact.nextAction = "shadowmount";
           job2.artifact.destination = target;
           job2.state = "downloaded";
-        } else {
-        const archiveFiles = files.filter(file => /\.(zip|7z|rar|r[0-9]{2})$/i.test(file.path));
-        if (archiveFiles.length && archives) {
-          job2.downloadDestination = archiveFiles[0].path;
-          job2.artifact.nextAction = "extraction-required";
-          await extract(job2, archiveFiles.map(file => file.path));
-        } else {
+      } else if ((nativePs5 || !packaged.length) && archive.error) {
+        throw new Error(archive.error);
+      } else if ((nativePs5 || !packaged.length) && archive.sources.length && archives) {
+        job2.downloadDestination = archive.sources[0];
+        job2.artifact.nextAction = "extraction-required";
+        job2.archiveExtras = archive.extras;
+        await extract(job2, archive.sources);
+      } else if (packaged.length) {
+        job2.packages = packaged.map(file => file.path);
+        job2.output = destination;
+        job2.artifact.nextAction = "installer-required";
+        job2.state = "installer-required";
+      } else {
           job2.output = destination;
           job2.artifact.nextAction = "downloaded";
           job2.state = "file-downloaded";
-        }
-        }
       }
       notifications.show(t("downloads.notice.complete"), job2.title);
       if (job2.state === "installer-required" && canInstall()) await install(job2);
@@ -623,12 +640,8 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     async function headers(sources, why) {
       const started = Date.now();
       let found;
-      try {
-        found = archives.inspectAsync ? await archives.inspectAsync(sources) : archives.inspect(sources);
-      } catch (error2) {
-        console.log(`[download-queue] header check (${why}) off the render thread failed, reading it here: ${error2.message}`);
-        found = archives.inspect(sources);
-      }
+      if (typeof archives?.inspectAsync !== "function") throw new Error("Archive header checks require the updated asynchronous runtime.");
+      found = await archives.inspectAsync(sources);
       console.log(`[download-queue] header check (${why}): ${found.kind || "no known format"}${found.refusal ? `, refused: ${found.refusal}` : ""} in ${Date.now() - started} ms (waited ${found.waitedMs ?? 0} ms, read ${found.tookMs ?? 0} ms)`);
       return found;
     }
@@ -807,12 +820,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     function extraction(job2, files) {
       if (!archives) throw new Error("Archive extraction requires the updated PS5 React runtime.");
       if (releasesOf) {
-        const stored2 = job2.release.parts ? job2.release.parts.flatMap((part) => part.sources) : [job2.release];
-        const current = releasesOf(job2.gameId).flatMap((release) => release.parts ? release.parts.flatMap((part) => part.sources) : [release]);
-        for (const source2 of stored2) {
-          const match = current.find((item) => item.url && item.url === source2.url && item.browserUrl === source2.browserUrl);
-          if (source2.archivePassword == null && match?.archivePassword) source2.archivePassword = match.archivePassword;
-        }
+        refreshArchiveMetadata(job2.release, releasesOf(job2.gameId), (url) => /^magnet:/i.test(url) ? torrentKey(url) : url);
       }
       const password = archivePassword(job2.release);
       storageIdentity(job2);
@@ -824,7 +832,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
         sources: files,
         destination: job2.output,
         ...password !== void 0 ? { password } : {},
-        maxBytes: fs.exists(job2.output) ? 1024 ** 4 : Math.min(1024 ** 4, Math.max(1, fs.diskUsage(job2.root).free - MARGIN2))
+        maxBytes: fs.exists(job2.output) || fs.exists(job2.output+'.extracting') ? 1024 ** 4 : Math.min(1024 ** 4, Math.max(1, fs.diskUsage(job2.root).free - MARGIN2))
       };
     }
     const STREAM_FAILURE = /RAR worker|Only a RAR set|extraction thread|archive task is already running|^RAR extraction failed|^Extraction cancelled/;
@@ -845,11 +853,12 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     async function extract(job2, files, streamed) {
       const options = extraction(job2, files);
       const downloaded = { written: job2.written, total: job2.total };
-      let estimate = files.reduce((sum, path) => sum + (fs.stat(path)?.size || 0), 0) || null;
+      const exact = job2.release.archiveMetadata?.unpackedSizeBytes;
+      let estimate = Number.isSafeInteger(exact) && exact > 0 && exact <= 1024**4 ? exact : files.reduce((sum, path) => sum + (fs.stat(path)?.size || 0), 0) || null;
       // The archive's own size stands in for what it unpacks to until the engine reads that from its headers.
       // Games unpack to far more (issue #54: a 107.9 GB set to over 160 GB): past the guess the row counts
       // what is written, with no total, instead of holding at 99%.
-      let guessed = true;
+      let guessed = !(Number.isSafeInteger(exact) && exact > 0 && exact <= 1024**4);
       job2.state = "extracting";
       job2.extractedFiles = 0;
       job2.written = 0;
@@ -908,10 +917,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           result = outcome.result;
         }
         if (!result) {
-          if (!fs.exists(job2.output) && fs.diskUsage(job2.root).free < (estimate || 0) + MARGIN2)
+          if (!fs.exists(job2.output) && !fs.exists(job2.output+'.extracting') && fs.diskUsage(job2.root).free < (estimate || 0) + MARGIN2)
             throw new Error("Not enough space to extract this download. Free space and retry.");
           const { password: listed, ...unlocked } = options;
-          const passwords = [listed, ...KNOWN_PASSWORDS.filter((password) => password !== listed)];
+          const passwords = job2.release.source === 'user' ? [listed] : [listed, ...KNOWN_PASSWORDS.filter((password) => password !== listed)];
           for (let index = 0; !result; index++) {
             const task = archives.extract(passwords[index] === void 0 ? unlocked : { ...unlocked, password: passwords[index] });
             active2.task = task;
@@ -1187,8 +1196,13 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       }
       return identity;
     }
+    function ensureExtractionStopped(job2) {
+      if (job2.output && fs.exists(job2.output+'.extracting'))
+        throw new Error("Extraction still owns partial files. Resume to reconnect or confirm its stopped worker before deleting; the downloaded archive was preserved.");
+    }
     function partialFiles(job2) {
       storageIdentity(job2);
+      ensureExtractionStopped(job2);
       if (!job2.rootIdentity) throw new Error("This older task has no storage identity. Preserve and inspect its partial files.");
       if (sourceKind(job2.release) === "torrent") return [torrentDirectory(job2.release, job2.root), torrentResume(job2.release, job2.root)];
       if (fs.exists(job2.parts?.[job2.partIndex]?.destination || job2.downloadDestination || job2.artifact.destination)) throw new Error("A final file exists. Retry to verify and recover it.");
@@ -1202,6 +1216,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     }
     function setFiles(job2) {
       storageIdentity(job2);
+      ensureExtractionStopped(job2);
       if (!job2.rootIdentity) throw new Error("This older task has no storage identity. Preserve and inspect its partial files.");
       const extracted = job2.output?.startsWith(`${job2.root}/downloads/extracted/`) && !job2.publishTo ? [job2.output] : [];
       return [setDirectory(job2), ...extracted].filter((path) => !jobs.some((other) => other !== job2 && [other.release.parts && setDirectory(other), other.output, other.publishTo, other.artifact.destination, other.downloadDestination].some((owned2) => owned2 && (owned2 === path || owned2.startsWith(`${path}/`)))));
@@ -1344,6 +1359,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
     }
     const deletions = /* @__PURE__ */ new WeakMap();
     async function deleteJob(job2) {
+      ensureExtractionStopped(job2);
       const log2 = (message) => console.log(`[download-queue] delete ${job2.id}: ${message}`);
       const paths = ownedPaths(job2);
       let uninstall = null;
@@ -1747,6 +1763,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           // A source of another region or edition names its file's own title id: the capture looks
           // for it, and the files carry it, so it is no "another game?" warning.
           titleId: release.titleId || game.titleId || game.id,
+          platform: game.platform,
           title: game.title,
           release: { ...release },
           requestedId: release.id,
@@ -1803,6 +1820,10 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
       async restart(id) {
         const job2 = find(id);
         if (!["paused", "failed", "awaiting-browser"].includes(job2.state) || active2?.job === job2) return;
+        if (job2.artifact.nextAction === "extraction-required" && job2.torrentFiles?.length) {
+          this.resume(id);
+          return;
+        }
         if (job2.adopted) throw new Error(ADOPTED);
         const paths = !job2.parts?.[job2.partIndex]?.completed && (job2.options || job2.rootIdentity || job2.written || fs.exists(job2.artifact.destination + ".part") || fs.exists(job2.artifact.destination + ".resume")) ? partialFiles(job2) : [];
         stopCapture(job2);

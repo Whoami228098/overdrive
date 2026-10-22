@@ -48,11 +48,12 @@ int main(int argc,char** argv){
  archives::Request request;request.destination=argv[1];request.max_bytes=std::stoull(argv[2]);
  // --stream: later volumes may appear while it runs; --cancel-after <ms> cancels it then; --again <worker>
  // runs the same request once more in this process with that rar-extract.
- long cancel_after=-1;const char* again=nullptr;
+ long cancel_after=-1,detach_after=-1;const char* again=nullptr;
  for(int i=3;i<argc;i++){
   if(std::string(argv[i])=="--password"&&i+1<argc)request.password=argv[++i];
   else if(std::string(argv[i])=="--stream")request.stream=true;
   else if(std::string(argv[i])=="--cancel-after"&&i+1<argc)cancel_after=std::stol(argv[++i]);
+  else if(std::string(argv[i])=="--detach-after"&&i+1<argc)detach_after=std::stol(argv[++i]);
   else if(std::string(argv[i])=="--again"&&i+1<argc)again=argv[++i];
   else request.sources.emplace_back(argv[i]);
  }
@@ -70,5 +71,6 @@ int main(int argc,char** argv){
   if(!(id=archives::enqueue(copy,error))){std::cout<<"failed\n"<<error;return 0;}
   started=std::chrono::steady_clock::now();}
  if(cancel_after>=0&&std::chrono::steady_clock::now()-started>=std::chrono::milliseconds(cancel_after)){archives::cancel(id);cancel_after=-1;}
+ if(detach_after>=0&&std::chrono::steady_clock::now()-started>=std::chrono::milliseconds(detach_after)){archives::stop();std::cout<<"detached\n";return 0;}
  std::this_thread::sleep_for(std::chrono::milliseconds(10));}
 }

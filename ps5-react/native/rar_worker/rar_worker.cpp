@@ -48,7 +48,7 @@ struct Options {
   uint64 window = 0, limit = 0;
   bool wait = false;
   std::vector<std::string> flatten, sources;
-  std::string reserved, password, destination;
+  std::string reserved, password, destination, journal_identity;
 };
 
 bool cancelled = false;  // Only the decoding thread reads and sets it.
@@ -81,6 +81,7 @@ bool read_request(Options& options) {
     else if (key == "reserved") options.reserved = value;
     else if (key == "password" && !from_hex(value, options.password)) return false;
     else if (key == "dest") options.destination = value;
+    else if (key == "journal") options.journal_identity = value;
     else if (key == "wait") options.wait = value == "1";
     else if (key == "source") options.sources.push_back(value);
   }
@@ -450,9 +451,14 @@ int main() {
   // "7ZX1" asks for a 7z (sevenzip.cpp); "RARX1" for a RAR set.
   std::string magic;
   if (read_line(magic) && magic == "7ZX1") return sevenzip::run();
+  if (magic == "ARX1") return sevenzip::run(true);
   Options options;
   if (magic != "RARX1" || !read_request(options)) {
     say("fail Invalid RAR worker request.");
+    return 1;
+  }
+  if (!persist(options.destination, options.journal_identity, options.limit)) {
+    say("fail Cannot claim persistent extraction journal; files preserved.");
     return 1;
   }
   say("ready");

@@ -55,7 +55,8 @@ private:
 // at the end. Memory stays the same whatever the number of files. Used from one thread at a time.
 class Receipt {
 public:
-  Receipt(std::string directory, std::string header) : directory_(std::move(directory)), header_(std::move(header)) {}
+  Receipt(std::string directory, std::string header, std::string spill_name = ".ps5-react-receipt-lines")
+      : directory_(std::move(directory)), header_(std::move(header)), spill_name_(std::move(spill_name)) {}
   ~Receipt() {
     if (fd_ >= 0) close(fd_);
     if (fd_ >= 0 || spilled_) unlink(spill_path().c_str());
@@ -138,7 +139,7 @@ public:
 
 private:
   static constexpr std::size_t buffer_bytes = 1024 * 1024;
-  std::string spill_path() const { return directory_ + "/.ps5-react-receipt-lines"; }
+  std::string spill_path() const { return directory_ + "/" + spill_name_; }
   static bool write_all(int fd, const char* data, std::size_t size) {
     while (size) {
       const auto count = write(fd, data, size);
@@ -161,7 +162,7 @@ private:
     buffer_.clear();
     return true;
   }
-  std::string directory_, header_, buffer_;
+  std::string directory_, header_, buffer_, spill_name_;
   int fd_ = -1;
   std::uint64_t lines_ = 0;
   bool failed_ = false, spilled_ = false;

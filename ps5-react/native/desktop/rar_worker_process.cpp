@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <thread>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
@@ -97,9 +98,20 @@ void archives::cancel_rar_worker(int stream) { send_all(stream, "cancel\n", 7); 
 
 // The worker stops when its input closes. One stuck in a write past five seconds is killed, so it
 // cannot outlive the extraction whose staging is about to be removed.
-void archives::close_rar_worker(int stream) {
+bool archives::durable_workers() { return std::getenv("ARCHIVE_DURABLE") != nullptr; }
+void archives::close_rar_worker(int stream, bool keep_running) {
   std::lock_guard lock(guard);
   close(stream);
+  if (keep_running) {
+    // The journal owns this task now. Reap its child without stopping it when
+    // the controller detaches, as the PS5 payload loader does.
+    const pid_t detached = child;
+    child = -1;
+    if (detached > 0) std::thread([detached] {
+      while (waitpid(detached, nullptr, 0) < 0 && errno == EINTR) {}
+    }).detach();
+    return;
+  }
   for (int wait = 0; child > 0 && !waitpid(child, nullptr, WNOHANG); ++wait) {
     if (wait == 100) {
       kill(child, SIGKILL);

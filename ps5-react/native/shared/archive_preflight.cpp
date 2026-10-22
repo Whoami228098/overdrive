@@ -444,7 +444,7 @@ bool unpack_header(Volumes& in, Cursor& cursor, std::vector<unsigned char>& head
   return in.read(signature_size + streams.pack_position, packed.data(), packed.size()) && decode_header(coder, packed, header);
 }
 
-std::string check(Volumes& in, std::uint64_t& declared) {
+std::string check(Volumes& in, std::uint64_t& declared, std::uint64_t& output) {
   std::array<unsigned char, signature_size> signature{};
   if (!in.read(0, signature.data(), signature.size())) return malformed;
   const auto offset = little_endian(signature.data() + 12, 8);
@@ -481,7 +481,15 @@ std::string check(Volumes& in, std::uint64_t& declared) {
   }
   if (!cursor.ok) return malformed;
   std::uint64_t memory = 0;
-  for (const auto& item : main.folders) memory = std::max(memory, folder_memory(item, main, in));
+  for (const auto& item : main.folders) {
+    memory = std::max(memory, folder_memory(item, main, in));
+    for (std::size_t index = 0; index < item.sizes.size(); ++index) {
+      if (std::none_of(item.bindings.begin(), item.bindings.end(), [&](const auto& binding) { return binding.second == index; })) {
+        if (item.sizes[index] > UINT64_MAX - output) return malformed;
+        output += item.sizes[index];
+      }
+    }
+  }
   declared = memory;
   return fits(memory);
 }
@@ -690,13 +698,19 @@ std::string preflight(const std::vector<std::string>& sources) {
 }
 
 std::string preflight(const std::vector<std::string>& sources, std::uint64_t& seven_zip_memory) {
+  std::uint64_t output = 0;
+  return preflight(sources, seven_zip_memory, output);
+}
+
+std::string preflight(const std::vector<std::string>& sources, std::uint64_t& seven_zip_memory, std::uint64_t& seven_zip_output) {
   seven_zip_memory = 0;
+  seven_zip_output = 0;
   Volumes in(sources);
   std::array<unsigned char, 8> magic{};
   in.read(0, magic.data(), static_cast<std::size_t>(std::min<std::uint64_t>(magic.size(), in.size())));
   // libarchive searches executables for an embedded archive, which these checks do not follow.
   if (starts_with(magic, "MZ") || starts_with(magic, "\x7F" "ELF")) return "Self-extracting archives are not supported.";
-  if (starts_with(magic, "7z\xBC\xAF\x27\x1C")) return seven_zip::check(in, seven_zip_memory);
+  if (starts_with(magic, "7z\xBC\xAF\x27\x1C")) return seven_zip::check(in, seven_zip_memory, seven_zip_output);
   if (starts_with(magic, rar5::signature)) return rar5::check(in, false);
   if (starts_with(magic, rar4::signature)) return rar4::check(in, false);
   // Compression around a TAR: only the outer layer is checked.

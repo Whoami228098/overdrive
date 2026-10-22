@@ -54,3 +54,32 @@ test('malformed optional game text cannot crash the real title-page text formatt
   assert.equal(catalog.games[0].dub,null);
   assert.equal(catalog.games[0].userReleases[0].version,null);
 });
+
+test('published passwords and exact archive sizes survive each user release route', () => {
+  for (const source of ['magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567',
+                        'https://example.invalid/game.7z','https://example.invalid/game.pkg']) {
+    const metadata={unpackedSizeBytes:286351425536,encryption:'none',kind:'archive'};
+    const catalog=load({games:[{...game,source,archivePassword:'[Case Sensitive] ü',archiveMetadata:metadata,
+      topic_url:'https://rutracker.org/forum/viewtopic.php?t=123'}]});
+    const release=catalog.games[0].userReleases[0];
+    assert.equal(release.archivePassword,'[Case Sensitive] ü');
+    assert.equal(release.archiveMetadata.unpackedSizeBytes,286351425536);
+    assert.equal(release.topicUrl,'https://rutracker.org/forum/viewtopic.php?t=123');
+  }
+});
+
+test('source-specific passwords stay attached to their own mirror', () => {
+  const catalog=load({games:[{...game,source:{url:game.source,archivePassword:'First'},
+    mirrors:[{url:'https://example.invalid/other.pkg',archivePassword:'Second'}]}]});
+  assert.deepEqual(Array.from(catalog.games[0].userReleases,release=>release.archivePassword),['First','Second']);
+});
+
+test('invalid and oversized UTF-8 passwords block that source without crashing the catalog', () => {
+  for(const archivePassword of [{},'x\0y','ü'.repeat(513)]) {
+    const catalog=load({games:[{...game,archivePassword}]});
+    assert.equal(catalog.games.length,1);
+    const release=catalog.games[0].userReleases[0];
+    assert.match(release.unavailableReason,/invalid archive password/);
+    assert.equal(release.archivePassword,undefined);
+  }
+});
