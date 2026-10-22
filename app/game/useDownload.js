@@ -39,6 +39,7 @@ import { sameRelease } from '../state/release-sets.js';
         const queue = downloadQueue();
         if (!job2) {
           if (release) {
+            console.log(`[overdrive] download requested game=${game.id} release=${release.id} type=${release.type || release.format}`);
             started.current = true;
             queue.enqueue(game, release, root2);
           }

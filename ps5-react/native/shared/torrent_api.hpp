@@ -16,11 +16,14 @@ struct Status {
   char name[128] = {};
 };
 struct File { std::string path; long long size = 0; };
-// Calls submit bounded commands/copy snapshots; session and disk I/O live on the worker.
-// A later start changes the default root for new jobs; existing jobs keep their own root.
-bool start(const char* save_root);
+// Install before start; the callback must enqueue logs without doing I/O.
+using Logger = void (*)(const char*);
+void set_logger(Logger logger);
+// Host lifecycle only, before loading JS. Session construction and I/O run on the worker.
+// The optional root preserves standalone callers; JS supplies a root with each add.
+bool start(const char* save_root = nullptr);
 void stop();
-int add_magnet(const char* uri, const char* name, long long size_hint);
+int add_magnet(const char* uri, const char* name, long long size_hint, const char* save_root = nullptr);
 int poll(Status* out, int max);
 bool finished(int id);
 void pause(int id);

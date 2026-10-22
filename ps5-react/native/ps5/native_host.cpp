@@ -429,7 +429,15 @@ bool run_proof() {
       hui_heap_capacity(&heap.size, nullptr, nullptr);
       return heap;
     });
-    if (network::start()) ps5_react_start_images();
+    const bool network_ready = network::start();
+    if (network_ready) ps5_react_start_images();
+#if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+    torrent::set_logger([](const char* line) { async_log::write("[PS5-REACT] torrent %s", line); });
+    if (!network_ready)
+      async_log::write("[PS5-REACT] torrent startup skipped: native networking is not running");
+    else if (!torrent::start())
+      async_log::write("[PS5-REACT] torrent startup refused: %s", torrent::last_error());
+#endif
     async_log::write("[PS5-REACT] sound=%d at %lldms", ps5_react_start_sound(), since_launch_ms());
     ErRuntimeConfig config = {};
     config.screen_width = width; config.screen_height = height;

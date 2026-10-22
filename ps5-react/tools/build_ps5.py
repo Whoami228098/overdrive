@@ -120,6 +120,7 @@ def main():
     if not os.path.lexists(test_react):
         test_react.symlink_to(er / "bridges/quickjs/js/node_modules/react", target_is_directory=True)
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
+         ROOT.parent / "app/game/game-open.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
     # Check the shared task bridge without blocking this backend on an existing
     # BrowserCapture fixture that still expects the older three-argument ABI.

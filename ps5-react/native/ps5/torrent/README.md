@@ -16,6 +16,11 @@ bridge. `Torrent.available` is false on older or desktop hosts without this
 optional backend. Existing HTTP transfers keep their original path.
 
 The worker owns the session/alerts and exposes bounded submission and snapshots.
+The host schedules it at startup before loading JS, without waiting for session
+initialization. JS add/control calls never start or join a worker. Each queued
+add carries its own save root; directory and resume work run on the worker.
+Session lifecycle and add ids are written through the PS5 async logger. A blocked
+session constructor or metadata request cannot hold the submission/snapshot lock.
 Listeners use IPv4 ports 6881–6889. Connections are capped at 64, the send watermark
 at 256 KiB, disk workers at 2, and hashing workers at 1. The optional PS5 network
 pool is 4 MiB instead of the HTTP-only 1 MiB. These are resource limits, not a
@@ -37,7 +42,7 @@ resume file belong to that job.
 Run the dependency-free JavaScript behavior checks from the repository root:
 
 ```sh
-node --test ps5-react/native/shared/tests/torrent-integration.test.mjs app/state/game-detection.test.mjs
+node --test ps5-react/native/shared/tests/torrent-integration.test.mjs app/game/game-open.test.mjs app/state/game-detection.test.mjs
 ```
 
 The PS5 builder runs these checks before compiling libtorrent. They cover real

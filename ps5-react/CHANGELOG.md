@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — user game pages and torrent startup
+
+- Fix a missing translation hook that threw while rendering every game page.
+  User entries keep their own releases and do not read built-in release/page
+  files. Remove remaining built-in alternate editions so duplicate title ids
+  cannot override a user game.
+- Prewarm the optional torrent worker before loading JS. JS submission only
+  queues a magnet with its save root; session creation, DHT, resume files and
+  disk work stay on the worker. Failed workers are joined only during shutdown.
+- Log game navigation, download requests and torrent session/task lifecycle
+  through the existing async log. Add regression checks for opening user games
+  without torrent calls and queuing their selected release only on download.
+
 ## Unreleased — requests beside a download
 
 - `Http.request` (and every task without a file destination) runs on a network thread of its own,

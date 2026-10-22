@@ -47,6 +47,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View } from '@ps5-react/
     ] });
   }
   function GameScreen({ game, download, onBack, onOpenGame }) {
+    const t2 = useT();
     const [dialog, setDialog] = (0, useState)(null);
     const [detailsOpen, setDetailsOpen] = (0, useState)(false);
     const [captureJob, setCaptureJob] = (0, useState)(null);
@@ -58,6 +59,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View } from '@ps5-react/
     const about = game.about.filter((text) => text.trim());
     (0, useEffect)(() => {
       const key = `page:${game.id}`;
+      console.log(`[overdrive] game ready id=${game.id} user=${Boolean(game.user)}`);
       lightGame(key, game);
       return () => unlight(key);
     }, [game.id]);

@@ -10,10 +10,12 @@
 #include <libtorrent/read_resume_data.hpp>
 #include <libtorrent/write_resume_data.hpp>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdarg>
 #include <cstring>
 #include <cerrno>
 #include <deque>
@@ -32,7 +34,7 @@ namespace {
 namespace lt = libtorrent;
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-struct Entry { Status status; std::string error; std::vector<File> files; std::string uri, root, destination; };
+struct Entry { Status status; std::string error; std::shared_ptr<const std::vector<File>> files; std::string uri, root, destination; };
 enum class Op { add, pause, resume, remove };
 struct Command { Op op; int id; bool delete_files = false; };
 struct Job {
@@ -53,8 +55,28 @@ std::thread worker;
 std::string root, latest_error;
 bool running = false, stopping = false;
 int next_id = 1;
+std::atomic<Logger> logger{nullptr};
+
+void trace(const char* format, ...) {
+  const auto log = logger.load(std::memory_order_relaxed);
+  if (!log) return;
+  char line[320];
+  va_list args;
+  va_start(args, format);
+  std::vsnprintf(line, sizeof line, format, args);
+  va_end(args);
+  log(line);
+}
+// Pure bounded validation: no filesystem access or libtorrent calls on the submitter.
+bool valid_root(const char* path) {
+  if (!path || path[0] != '/' || std::strlen(path) > 2048 || std::strchr(path, '\\')) return false;
+  for (const char* part = path; part; part = std::strchr(part + 1, '/'))
+    if (part[1] == '.' && part[2] == '.' && (!part[3] || part[3] == '/')) return false;
+  return true;
+}
 
 void fail(int id, const std::string& message) {
+  trace("task failed id=%d error=%s", id, message.c_str());
   std::lock_guard<std::mutex> lock(mutex);
   latest_error = message;
   const auto found = entries.find(id);
@@ -134,15 +156,17 @@ void inspect(Job& job) {
     files.push_back({(base / relative).string(), storage.file_size(index)});
   }
   if (files.empty() || storage.total_size() <= 0) throw std::runtime_error("Torrent contains no payload files.");
+  auto snapshot = std::make_shared<const std::vector<File>>(std::move(files));
   {
     std::lock_guard<std::mutex> lock(mutex);
-    entries.at(job.id).files = std::move(files);
+    entries.at(job.id).files = std::move(snapshot);
     job.metadata_checked = true;
   }
   job.handle.unset_flags(lt::torrent_flags::upload_mode);
 }
 void run() noexcept {
   std::map<int, Job> jobs;
+  trace("session starting worker");
   try {
     lt::settings_pack settings;
     settings.set_str(lt::settings_pack::listen_interfaces, "0.0.0.0:6881");
@@ -161,6 +185,7 @@ void run() noexcept {
     settings.set_int(lt::settings_pack::alert_mask,
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage);
     lt::session session(settings);
+    trace("session ready worker");
     bool exiting = false;
     Clock::time_point deadline;
     for (;;) {
@@ -174,14 +199,16 @@ void run() noexcept {
       for (const auto& command : pending) {
         try {
           if (command.op == Op::add || (command.op == Op::resume && !jobs.count(command.id))) {
-            Entry entry;
-            { std::lock_guard<std::mutex> lock(mutex); entry = entries.at(command.id); }
+            trace("add_magnet begin worker id=%d", command.id);
+            std::string uri, save_root;
+            { std::lock_guard<std::mutex> lock(mutex);
+              uri = entries.at(command.id).uri; save_root = entries.at(command.id).root; }
             lt::error_code ec;
-            auto params = lt::parse_magnet_uri(entry.uri, ec);
+            auto params = lt::parse_magnet_uri(uri, ec);
             if (ec) throw std::runtime_error(ec.message());
             const auto hashes = params.info_hashes;
             const std::string key = hash_key(hashes);
-            const fs::path parent = fs::path(entry.root) / "downloads/torrents";
+            const fs::path parent = fs::path(save_root).lexically_normal() / "downloads/torrents";
             const fs::path destination = parent / key;
             const fs::path resume_dir = parent / ".resume";
             fs::path ancestor;
@@ -227,6 +254,7 @@ void run() noexcept {
             jobs.emplace(command.id, Job{command.id, handle, resume_path, destination.string()});
             { std::lock_guard<std::mutex> lock(mutex); entries.at(command.id).status.state = queued;
               entries.at(command.id).error.clear(); entries.at(command.id).destination = destination.string(); }
+            trace("add_magnet accepted worker id=%d", command.id);
           } else {
             const auto found = jobs.find(command.id);
             if (found == jobs.end()) {
@@ -338,17 +366,21 @@ void run() noexcept {
         return item.second.paused_ack && item.second.saved_after_pause && !item.second.saving;
       }))) break;
     }
+    trace("session stopping worker");
   } catch (const std::exception& error) {
+    trace("session failed worker error=%s", error.what());
     std::lock_guard<std::mutex> lock(mutex);
     latest_error = error.what();
     for (auto& item : entries) if (item.second.status.state != completed && item.second.status.state != removed) {
       item.second.status.state = failed; item.second.error = latest_error;
     }
   } catch (...) {
+    trace("session failed worker unknown exception");
     std::lock_guard<std::mutex> lock(mutex); latest_error = "Torrent worker failed with an unknown exception.";
     for (auto& item : entries) { item.second.status.state = failed; item.second.error = latest_error; }
   }
-  std::lock_guard<std::mutex> lock(mutex); running = false;
+  { std::lock_guard<std::mutex> lock(mutex); running = false; }
+  trace("session stopped worker");
 }
 void command(Op op, int id, bool delete_files = false) {
   std::lock_guard<std::mutex> lock(mutex);
@@ -360,51 +392,53 @@ void command(Op op, int id, bool delete_files = false) {
 }
 } // namespace
 
+void set_logger(Logger value) { logger.store(value, std::memory_order_relaxed); }
 bool start(const char* save_root) {
-  if (!save_root || save_root[0] != '/' || std::strlen(save_root) > 2048 || std::strchr(save_root, '\\')) {
+  if (save_root && !valid_root(save_root)) {
     std::lock_guard<std::mutex> lock(mutex); latest_error = "Expected an absolute torrent save root."; return false;
   }
-  const fs::path path(save_root);
-  for (const auto& part : path) if (part == "..") { std::lock_guard<std::mutex> lock(mutex); latest_error = "Torrent save root contains '..'."; return false; }
   std::unique_lock<std::mutex> lock(mutex);
   if (stopping) { latest_error = "Torrent session is stopping."; return false; }
-  if (worker.joinable() && !running) {
-    // A failed startup has already destroyed its session; joining this finished worker does no I/O.
-    std::thread previous = std::move(worker);
-    lock.unlock(); previous.join(); lock.lock();
-  }
-  root = path.lexically_normal().string();
+  if (save_root) root = save_root;
   if (running) return true;
+  // A failed worker is joined only by stop(), never by a JS call or automatic retry.
+  if (worker.joinable()) { latest_error = "Torrent worker failed; restart the application."; return false; }
+  trace("session scheduled at host startup");
   try { running = true; worker = std::thread(run); return true; }
   catch (const std::exception& error) { running = false; latest_error = error.what(); return false; }
 }
 void stop() {
+  trace("session stop requested host");
   { std::lock_guard<std::mutex> lock(mutex); stopping = true; wake.notify_one(); }
   if (worker.joinable()) worker.join();
   std::lock_guard<std::mutex> lock(mutex);
   entries.clear(); commands.clear(); stopping = running = false; root.clear();
 }
-int add_magnet(const char* uri, const char* name, long long size_hint) {
-  std::lock_guard<std::mutex> lock(mutex);
+int add_magnet(const char* uri, const char* name, long long size_hint, const char* save_root) {
+  std::unique_lock<std::mutex> lock(mutex);
   if (!running || stopping) { latest_error = "Torrent session is not running."; return 0; }
+  const std::string job_root = save_root ? save_root : root;
+  if (!valid_root(job_root.c_str())) { latest_error = "Expected an absolute torrent save root."; return 0; }
   if (!uri || std::strncmp(uri, "magnet:?", 8) || std::strlen(uri) > 16384 || size_hint < 0 || next_id == INT_MAX) {
     latest_error = "Invalid magnet URI or size hint."; return 0;
   }
-  for (auto& item : entries) if (item.second.uri == uri && item.second.root == root && item.second.status.state != removed) {
+  for (auto& item : entries) if (item.second.uri == uri && item.second.root == job_root && item.second.status.state != removed) {
     if (item.second.status.state == paused || item.second.status.state == failed) {
       if (commands.size() >= 128) { latest_error = "Torrent command queue is full."; return 0; }
       commands.push_back({Op::resume, item.first}); wake.notify_one();
     }
-    return item.first;
+    const int id = item.first;
+    lock.unlock(); trace("add_magnet reused id=%d", id); return id;
   }
   for (auto it = entries.begin(); it != entries.end();) {
     if (it->second.status.state == removed) it = entries.erase(it); else ++it;
   }
   if (entries.size() >= 32 || commands.size() >= 128) { latest_error = "Torrent queue is full (32 jobs)."; return 0; }
   const int id = next_id++;
-  Entry entry; entry.uri = uri; entry.root = root; entry.status.id = id; entry.status.total = size_hint;
+  Entry entry; entry.uri = uri; entry.root = job_root; entry.status.id = id; entry.status.total = size_hint;
   std::snprintf(entry.status.name, sizeof entry.status.name, "%s", name ? name : "Torrent");
-  entries.emplace(id, std::move(entry)); commands.push_back({Op::add, id}); wake.notify_one(); return id;
+  entries.emplace(id, std::move(entry)); commands.push_back({Op::add, id}); wake.notify_one();
+  lock.unlock(); trace("add_magnet queued id=%d", id); return id;
 }
 int poll(Status* out, int max) {
   if (!out || max <= 0) return 0;
@@ -418,6 +452,10 @@ void resume(int id) { command(Op::resume, id); }
 void remove(int id, bool delete_files) { command(Op::remove, id, delete_files); }
 const char* last_error() { thread_local std::string text; std::lock_guard<std::mutex> lock(mutex); text = latest_error; return text.c_str(); }
 std::string error(int id) { std::lock_guard<std::mutex> lock(mutex); const auto it = entries.find(id); return it == entries.end() ? "Unknown torrent task." : it->second.error; }
-std::vector<File> files(int id) { std::lock_guard<std::mutex> lock(mutex); const auto it = entries.find(id); return it == entries.end() ? std::vector<File>{} : it->second.files; }
+std::vector<File> files(int id) {
+  std::shared_ptr<const std::vector<File>> snapshot;
+  { std::lock_guard<std::mutex> lock(mutex); const auto it = entries.find(id); if (it != entries.end()) snapshot = it->second.files; }
+  return snapshot ? *snapshot : std::vector<File>{};
+}
 std::string destination(int id) { std::lock_guard<std::mutex> lock(mutex); const auto it = entries.find(id); return it == entries.end() ? std::string{} : it->second.destination; }
 } // namespace torrent

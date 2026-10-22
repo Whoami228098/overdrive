@@ -240,7 +240,12 @@ struct Host {
                                                                                    : render_workers::available_cpus());
     std::printf("[PS5-REACT] render workers=%d of %d, cpus=%d\n", render_worker_count, render_workers::max_workers(),
                 render_workers::available_cpus());
-    if (network::start()) ps5_react_start_images();
+    const bool network_ready = network::start();
+    if (network_ready) ps5_react_start_images();
+#if defined(PS5_REACT_TORRENT) && PS5_REACT_TORRENT
+    if (network_ready && !torrent::start())
+      std::printf("[PS5-REACT] torrent startup refused: %s\n", torrent::last_error());
+#endif
     ps5_react_start_sound();
     ErRuntimeConfig cfg = {};
     cfg.screen_width = width; cfg.screen_height = height; cfg.screen_scale = 2;

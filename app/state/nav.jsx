@@ -35,7 +35,10 @@ import { useFocus } from '@ps5-react/core';
     const [actions] = (0, useState)(() => {
       const focusLater = (target) => setRequest((last) => ({ target, n: (last?.n ?? 0) + 1 }));
       const push = (screen2, from) => {
-        if (screen2.name === "game") recordVisit(screen2.id);
+        if (screen2.name === "game") {
+          console.log(`[overdrive] game open id=${screen2.id}`);
+          recordVisit(screen2.id);
+        }
         setStack((list) => [...list.slice(0, -1), { ...list[list.length - 1], from }, screen2]);
       };
       return {
@@ -45,6 +48,7 @@ import { useFocus } from '@ps5-react/core';
         openGame: (id, from) => push({ name: "game", id }, from),
         // Another edition of the open game takes its place, so Back still leaves the title.
         openEdition: (id, download) => {
+          console.log(`[overdrive] game edition id=${id} download=${Boolean(download)}`);
           recordVisit(id);
           setStack((list) => [...list.slice(0, -1), { name: "game", id, download }]);
         },

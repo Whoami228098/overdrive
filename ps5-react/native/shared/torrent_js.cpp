@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
 #include "host_api.hpp"
-#include "network.hpp"
 #include "torrent_api.hpp"
 #include <climits>
 #include <cmath>
@@ -20,6 +19,7 @@ bool text(JSContext* ctx, JSValueConst value, std::string& out, std::size_t max)
   return ok;
 }
 JSValue add(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+  host::CallScope scope("torrents.add");
   std::string uri, name, path;
   double size = 0;
   char resolved[PATH_MAX];
@@ -27,13 +27,13 @@ JSValue add(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
       JS_ToFloat64(ctx, &size, argv[2]) || !std::isfinite(size) || size < 0 || size > 9007199254740991.0 ||
       !text(ctx, argv[3], path, PATH_MAX - 128) || !host::resolve_path(path.c_str(), resolved, sizeof resolved))
     return JS_ThrowTypeError(ctx, "torrents.add: expected magnet, name, byte size and an allowed save root");
-  if (!network::running()) return JS_ThrowPlainError(ctx, "torrents.add %s: native networking is not running", path.c_str());
-  if (!torrent::start(resolved)) return JS_ThrowPlainError(ctx, "torrents.add %s: %s", path.c_str(), torrent::last_error());
-  const int id = torrent::add_magnet(uri.c_str(), name.c_str(), static_cast<long long>(size));
+  // resolve_path only maps sandbox aliases; all disk/network work belongs to the worker.
+  const int id = torrent::add_magnet(uri.c_str(), name.c_str(), static_cast<long long>(size), resolved);
   if (!id) return JS_ThrowPlainError(ctx, "torrents.add %s: %s", path.c_str(), torrent::last_error());
   return JS_NewInt32(ctx, id);
 }
 JSValue control(JSContext* ctx, int argc, JSValueConst* argv, int operation) {
+  host::CallScope scope("torrents.control");
   int id = 0;
   if (!argc || JS_ToInt32(ctx, &id, argv[0]) || id <= 0)
     return JS_ThrowTypeError(ctx, "torrents.control: expected a positive task id");
@@ -48,6 +48,7 @@ JSValue resume(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) { ret
 JSValue cancel(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) { return control(ctx, argc, argv, 2); }
 JSValue remove(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) { return control(ctx, argc, argv, 3); }
 JSValue poll(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+  host::CallScope scope("torrents.poll");
   static const char* states[] = {"queued", "connecting", "verifying", "downloading", "paused", "completed", "failed", "cancelled"};
   torrent::Status snapshots[32];
   const int count = torrent::poll(snapshots, 32);

@@ -705,6 +705,14 @@ payload transport runs on the worker.
 name, sizeHint, saveRoot})` returns the same `id`, `done`, `subscribe` and `cancel`
 task shape as Downloads. It performs magnet metadata/peer traffic on a native
 worker; cancel flushes resume data and releases the handle while retaining files.
+The host schedules the worker before loading JavaScript. Session creation, DHT,
+magnet parsing, resume reads and file operations never run in a JS bridge call.
+`torrents.add` only validates/maps strings, submits a bounded command and returns
+its id, including while the session initializes. A startup failure fails queued
+tasks and refuses new submissions; restart the app to retry a failed session.
+The PS5 async log records `torrent session starting/ready/stopping/stopped` and
+`torrent add_magnet queued/begin/accepted` with task ids, without logging magnets.
+Opening a user game only observes its queue; it does not call the torrent API.
 Completion returns verified `files: [{path, size}]`. The app queue routes the
 result to existing package/image/archive handling. Existing HTTP downloads use
 their original backend. Data lives under `saveRoot/downloads/torrents/<hash>`;

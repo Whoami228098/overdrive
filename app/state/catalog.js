@@ -24,6 +24,7 @@ import { FileSystem, Image } from '@ps5-react/core';
   };
   var dataFile = (dir2, id) => `data/${dir2}/${encodeURIComponent(id)}.json`;
   var pageOf = (game) => {
+    if (game.user) return NO_PAGE;
     try {
       return pageCache(dataFile("pages", game.id));
     } catch {
@@ -32,6 +33,7 @@ import { FileSystem, Image } from '@ps5-react/core';
   };
   var Entry = {
     get releases() {
+      if (this.user) return this.userReleases || [];
       try {
         return releaseCache(dataFile("releases", this.id));
       } catch {
