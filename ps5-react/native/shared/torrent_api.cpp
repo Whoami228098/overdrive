@@ -5,6 +5,7 @@
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
 #include <libtorrent/posix_disk_io.hpp>
+#include <libtorrent/mmap_disk_io.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/torrent_info.hpp>
@@ -37,6 +38,9 @@ namespace {
 namespace lt = libtorrent;
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
+// Upstream's cutoff is in 16 KiB blocks. Below this limit its threaded
+// backend uses pread/pwrite for both reads and writes, without mapping files.
+constexpr std::int64_t kUnmappedFileLimit = std::int64_t{INT_MAX} * 16384;
 struct Entry { Status status; std::string error; std::shared_ptr<const std::vector<File>> files; std::string uri, root, destination; bool retiring = false; };
 enum class Op { add, pause, resume, remove };
 struct Command { Op op; int id; bool delete_files = false; };
@@ -145,6 +149,8 @@ void inspect(Job& job) {
   for (auto index : storage.file_range()) {
     const auto flags = storage.file_flags(index);
     if (flags & lt::file_storage::flag_pad_file) continue;
+    if (storage.file_size(index) > kUnmappedFileLimit)
+      throw std::runtime_error("Torrent file exceeds the unmapped disk backend's 32 TiB limit.");
     const fs::path relative(storage.file_path(index));
     if (relative.empty() || relative.is_absolute() || (flags & lt::file_storage::flag_symlink))
       throw std::runtime_error("Torrent has an unsafe file or symlink.");
@@ -201,6 +207,9 @@ void run() noexcept {
     settings.set_int(lt::settings_pack::aio_threads, 4);
     settings.set_int(lt::settings_pack::hashing_threads, 1);
     settings.set_int(lt::settings_pack::max_queued_disk_bytes, 8 * 1024 * 1024);
+    settings.set_int(lt::settings_pack::mmap_file_size_cutoff, INT_MAX);
+    settings.set_int(lt::settings_pack::disk_write_mode, lt::settings_pack::always_pwrite);
+    settings.set_bool(lt::settings_pack::no_atime_storage, false);
     settings.set_int(lt::settings_pack::alert_queue_size, 512);
     settings.set_bool(lt::settings_pack::enable_upnp, false);
     settings.set_bool(lt::settings_pack::enable_natpmp, false);
@@ -212,11 +221,15 @@ void run() noexcept {
     trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881 outgoing=system",
       minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
     trace("session throughput connections=128 connect_per_second=40 disk_threads=4 queued_disk=8388608 download_limit=0");
-    // File-backed mappings differ on console filesystems. Keep disk access on
-    // libtorrent's portable backend; the session still runs off the JS thread.
+    // Keep the proven portable path available for diagnosis. The default
+    // threaded backend overlaps disk work with network I/O, but the cutoff and
+    // file-size validation above prevent every accepted payload file mapping.
     lt::session_params session_config(settings);
-    session_config.disk_io_constructor = lt::posix_disk_io_constructor;
-    trace("session disk backend=posix");
+    const char* portable_setting = std::getenv("TORRENT_PORTABLE");
+    const bool portable = portable_setting && std::strcmp(portable_setting, "1") == 0;
+    session_config.disk_io_constructor = portable ? lt::posix_disk_io_constructor : lt::mmap_disk_io_constructor;
+    trace("session disk backend=%s payload_mmap=0 cutoff_blocks=%d",
+      portable ? "posix" : "threaded-pread-pwrite", INT_MAX);
     lt::session session(std::move(session_config));
     trace("session ready worker");
     bool exiting = false;
@@ -281,6 +294,7 @@ void run() noexcept {
               params = std::move(restored);
             }
             params.save_path = destination.string();
+            params.storage_mode = lt::storage_mode_sparse;
             params.flags &= ~lt::torrent_flags::auto_managed;
             params.flags &= ~lt::torrent_flags::paused;
             // Metadata is allowed, payload writes wait for our path/symlink inspection.

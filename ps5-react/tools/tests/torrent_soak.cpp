@@ -31,6 +31,18 @@
 #include <type_traits>
 #include <vector>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <cerrno>
+
+std::atomic<unsigned> payload_map_attempts{0}, advice_attempts{0};
+extern "C" void* __real_mmap(void*, std::size_t, int, int, int, off_t);
+extern "C" void* __wrap_mmap(void* address, std::size_t length, int protection, int flags, int fd, off_t offset) {
+  if (fd >= 0) { ++payload_map_attempts; errno = ENOTSUP; return MAP_FAILED; }
+  return __real_mmap(address, length, protection, flags, fd, offset);
+}
+extern "C" int __wrap_madvise(void*, std::size_t, int) {
+  ++advice_attempts; errno = ENOTSUP; return -1;
+}
 
 namespace lt = libtorrent;
 namespace fs = std::filesystem;
@@ -341,6 +353,9 @@ int main(int argc, char** argv) {
     check(longest_call_us < 2'000'000, "native submit/poll call blocked for over 2 seconds");
     check(!wrong_thread, "worker ran on caller");
     check(invalid_handles == 0, "removal emitted invalid-handle errors");
+    check(payload_map_attempts == 0, "payload file mapping was attempted");
+    check(advice_attempts == 0, "memory advice was attempted");
+    std::cout << "payload_file_mmap_attempts=0 madvise_attempts=0" << std::endl;
     metrics(std::chrono::duration<double>(Clock::now() - from).count(), true);
     std::cout << "PASS native host soak; PS5 execution is not established by this test" << std::endl;
   } catch (const std::exception& error) {

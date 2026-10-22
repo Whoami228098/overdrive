@@ -1,5 +1,16 @@
 # Changelog
 
+## Overdrive 1.0.16 — overlapping torrent disk and network I/O
+
+- Use upstream's threaded disk backend with normal `pread`/`pwrite` operations
+  for every accepted payload file. Force sparse storage and disable payload
+  mappings through the 16 KiB-block cutoff and a matching 32 TiB file limit.
+- Retain `TORRENT_PORTABLE=1` for the earlier synchronous POSIX backend.
+- Disable optional memory/file advice hints in both console and pinned-source
+  host builds; the host harness rejects and counts file-backed mapping calls.
+- Keep the same bounded peer, memory and write-queue profile; record the selected
+  backend and disabled mapping policy at startup.
+
 ## Overdrive 1.0.15 — cover layout bootstrap
 
 - Give fixed cover dimensions directly to the image element so an initially
