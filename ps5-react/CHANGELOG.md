@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — torrent startup diagnostics
+
+- Add the build/runtime `TORRENT_MINIMAL=1` mode with DHT/LSD/bootstrap disabled,
+  fixed IPv4 listening, and no UPnP/NAT-PMP. Log the effective settings before
+  session construction; a constructor returning does not prove network-thread health.
+- Retain native ELF symbols, line tables, linker maps, imports and test logs in
+  CI, with exact-source reproduction and diagnostic-only workflow inputs.
+
 ## Unreleased — user game pages and torrent startup
 
 - Fix a missing translation hook that threw while rendering every game page.

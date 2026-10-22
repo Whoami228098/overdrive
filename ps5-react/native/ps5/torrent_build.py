@@ -64,6 +64,9 @@ def inputs(cache):
     return source, boost
 
 def prepare(sdk, ports, env, build):
+    minimal = env.get('TORRENT_MINIMAL', '0')
+    if minimal not in ('0', '1'):
+        raise ValueError('TORRENT_MINIMAL must be 0 or 1')
     sdk, ports, build = map(Path, (sdk, ports, build))
     cache = ROOT / '.deps/torrent-ps5'
     source, boost = inputs(cache)
@@ -75,6 +78,8 @@ def prepare(sdk, ports, env, build):
         f'-DOPENSSL_ROOT_DIR={ports}', f'-DOPENSSL_INCLUDE_DIR={ports}/include',
         f'-DOPENSSL_SSL_LIBRARY={ports}/lib/libssl.a', f'-DOPENSSL_CRYPTO_LIBRARY={ports}/lib/libcrypto.a',
         '-DOPENSSL_USE_STATIC_LIBS=TRUE']
+    # Keep line information for console crash symbolization without changing optimization.
+    cmake += ['-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -gline-tables-only']
     for name, command in [('configure', cmake), ('build', ['cmake', '--build', str(destination), '--target', 'torrent-rasterbar', '--parallel', '6'])]:
         log_path = build / f'torrent-{name}.log'
         with log_path.open('w') as log:
@@ -90,10 +95,12 @@ def prepare(sdk, ports, env, build):
     return {
         'sources': [ROOT / 'native/shared/torrent_api.cpp', ROOT / 'native/shared/torrent_js.cpp'],
         'includes': [source / 'include', boost],
-        'definitions': ['-DPS5_REACT_TORRENT=1', '-DTORRENT_NO_DEPRECATE', '-DTORRENT_DISABLE_LOGGING',
+        'definitions': ['-DPS5_REACT_TORRENT=1', '-DTORRENT_MINIMAL=' + minimal,
+            '-DTORRENT_NO_DEPRECATE', '-DTORRENT_DISABLE_LOGGING',
             '-DTORRENT_USE_OPENSSL', '-DTORRENT_USE_LIBCRYPTO', '-DTORRENT_SSL_PEERS', '-DOPENSSL_NO_SSL2',
             '-DBOOST_ASIO_ENABLE_CANCELIO', '-DBOOST_ASIO_NO_DEPRECATED'],
         'libraries': [library],
-        'receipt': {'dependencies': MANIFEST, 'library_sha256': sha256(library), 'hardware_tested': False},
+        'receipt': {'dependencies': MANIFEST, 'library_sha256': sha256(library),
+            'minimal_mode': minimal == '1', 'hardware_tested': False},
         'licenses': [source / 'COPYING', boost / 'LICENSE_1_0.txt']
     }

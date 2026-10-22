@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdarg>
+#include <cstdlib>
 #include <cstring>
 #include <cerrno>
 #include <deque>
@@ -168,10 +169,17 @@ void run() noexcept {
   std::map<int, Job> jobs;
   trace("session starting worker");
   try {
+    // A diagnostic build forces minimal mode; ordinary builds can opt in at runtime.
+#if defined(TORRENT_MINIMAL) && TORRENT_MINIMAL
+    const bool minimal = true;
+#else
+    const char* requested = std::getenv("TORRENT_MINIMAL");
+    const bool minimal = requested && std::strcmp(requested, "1") == 0;
+#endif
     lt::settings_pack settings;
     settings.set_str(lt::settings_pack::listen_interfaces, "0.0.0.0:6881");
     settings.set_str(lt::settings_pack::outgoing_interfaces, "0.0.0.0");
-    settings.set_int(lt::settings_pack::max_retry_port_bind, 8);
+    settings.set_int(lt::settings_pack::max_retry_port_bind, minimal ? 0 : 8);
     settings.set_bool(lt::settings_pack::listen_system_port_fallback, false);
     settings.set_int(lt::settings_pack::max_metadata_size, 10 * 1024 * 1024);
     settings.set_int(lt::settings_pack::connections_limit, 64);
@@ -182,8 +190,13 @@ void run() noexcept {
     settings.set_int(lt::settings_pack::alert_queue_size, 512);
     settings.set_bool(lt::settings_pack::enable_upnp, false);
     settings.set_bool(lt::settings_pack::enable_natpmp, false);
+    settings.set_bool(lt::settings_pack::enable_dht, !minimal);
+    settings.set_bool(lt::settings_pack::enable_lsd, !minimal);
+    if (minimal) settings.set_str(lt::settings_pack::dht_bootstrap_nodes, "");
     settings.set_int(lt::settings_pack::alert_mask,
       lt::alert_category::error | lt::alert_category::status | lt::alert_category::storage);
+    trace("session config TORRENT_MINIMAL=%d dht=%d lsd=%d upnp=0 natpmp=0 listen=0.0.0.0:6881",
+      minimal ? 1 : 0, minimal ? 0 : 1, minimal ? 0 : 1);
     lt::session session(settings);
     trace("session ready worker");
     bool exiting = false;

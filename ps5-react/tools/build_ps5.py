@@ -235,7 +235,7 @@ def main():
             flags = flags + ["-DHUI_HEAP_RESERVE=(448u * 1024u * 1024u)"]
         warnings = (["-w", "-DHB_TINY", "-DHB_HAS_RASTER"] if source in harfbuzz_sources else
                     ["-w", "-DSB_CONFIG_UNITY"] if source.name == "SheenBidi.c" else ["-Wall", "-Wextra", "-Werror"])
-        run(["sh", hui / "tooling/prospero-clang18", *flags, "-O2", *warnings, *layout_assets.get(source, []),
+        run(["sh", hui / "tooling/prospero-clang18", *flags, "-O2", "-gline-tables-only", *warnings, *layout_assets.get(source, []),
              "-DPROSPERO=1", "-DGL_GLEXT_PROTOTYPES=1", *torrent["definitions"], *shlex.split(definitions),
              *[flag for path in includes for flag in ("-I", path)], "-c", source, "-o", obj],
             env=env, log=BUILD / (f"compile-{i}.log"))
@@ -254,6 +254,7 @@ def main():
          # PS5 lacks this optional libc hook. Null selects libc++abi's existing
          # pthread-TLS destructor fallback and avoids an unresolvable weak import.
          "--defsym=__cxa_thread_atexit_impl=0",
+         "--Map=" + str(BUILD / "llvm-pie.map"),
          "--version-script", native / "app-symbols.map", "-e", "_start", "-o", pie,
          *[f"--wrap={symbol}" for symbol in wraps], "--undefined=ps5_agc_gate2_run", *objects,
          "--start-group", cross / "liber-software.a", cross / "bridge/liber-bridge-quickjs.a",

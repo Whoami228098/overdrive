@@ -15,6 +15,27 @@ JavaScript uses the public `Torrent` module through the existing native task
 bridge. `Torrent.available` is false on older or desktop hosts without this
 optional backend. Existing HTTP transfers keep their original path.
 
+## Startup diagnosis
+
+Set `TORRENT_MINIMAL=1` when building, or enable the workflow's `torrent_minimal`
+input. This embeds `-DTORRENT_MINIMAL=1` in the host, disables DHT and LSD, clears
+DHT bootstrap nodes and disables port retries. UPnP and NAT-PMP remain disabled.
+The listener is `0.0.0.0:6881`; the startup log prints the effective mode before
+constructing the session. Ordinary builds can also opt in with the runtime
+environment variable `TORRENT_MINIMAL=1`. A forced minimal build cannot be turned
+back to full mode by its runtime environment.
+
+Minimal mode is for console startup diagnosis: magnets without working trackers
+may have no peer discovery. It does not prove DHT, hostname resolution or peer
+transfers work. A `session ready worker` message only means the constructor
+returned; libtorrent's network thread may still fail asynchronously.
+
+CI retains `llvm-pie.elf`, the converted `eboot.elf`, symbol/import/relocation
+lists, linker map and test logs as `Native-diagnostics`. New builds retain line
+tables for host and libtorrent code. Set `diagnostic_only` to skip draft releases
+and the unrelated PS4 build. To reproduce a previous artifact, set `source_ref`
+to its exact commit, then compare executable bytes before using its addresses.
+
 The worker owns the session/alerts and exposes bounded submission and snapshots.
 The host schedules it at startup before loading JS, without waiting for session
 initialization. JS add/control calls never start or join a worker. Each queued
