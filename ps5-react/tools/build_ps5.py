@@ -123,10 +123,10 @@ def main():
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
          ROOT.parent / "app/game/game-open.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
-    # Check the shared task bridge without blocking this backend on an existing
-    # BrowserCapture fixture that still expects the older three-argument ABI.
-    run(["node", "--test", "--test-name-pattern=native network tasks|archive and download task IDs|removeAsync",
-         ROOT / "runtime/js/native.test.mjs"], log=BUILD / "native-network-tests.log")
+    # Exercise every pure JavaScript runtime fixture, including the full native
+    # task bridge and the reconciler-backed motion test, before native linking.
+    run(["node", "--test", *sorted((ROOT / "runtime/js").rglob("*.test.mjs"))],
+        log=BUILD / "native-network-tests.log")
     run(["python3", ROOT / "tools/test_native_imports.py"], log=BUILD / "native-import-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
