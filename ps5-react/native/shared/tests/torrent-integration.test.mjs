@@ -61,6 +61,7 @@ function fixture() {
       }
     },
     remove(path) { nodes.delete(path); }, diskUsage: () => ({free:10**12,total:10**12}),
+    chmod(path, mode) { if (!nodes.has(path)) throw new Error('missing ' + path); nodes.get(path).mode = mode; },
     readDir: path => [...nodes].filter(([child]) => child.startsWith(path+'/') && !child.slice(path.length+1).includes('/'))
       .map(([child,value])=>({name:child.slice(path.length+1),...value}))
   };
@@ -144,6 +145,9 @@ test('an unpacked PS5 game folder is published through the existing game selecto
   await until(()=>f.queue.snapshot()[0].state==='downloaded');
   assert.equal(f.queue.snapshot()[0].artifact.destination,'/data/homebrew/game-app');
   assert.equal(f.fs.exists('/data/homebrew/game-app/eboot.bin'),true);
+  assert.equal(f.fs.stat('/data/homebrew/game-app').mode,0o777);
+  assert.equal(f.fs.stat('/data/homebrew/game-app/eboot.bin').mode,0o777);
+  assert.equal(f.fs.stat('/data/homebrew/game-app/sce_sys/param.json').mode,0o777);
 });
 
 test('empty or escaped torrent payload fails without publishing anything', async () => {

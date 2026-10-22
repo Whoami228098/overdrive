@@ -596,6 +596,7 @@ import { VIKING_PAGE_PREFIX, VIKING_PREFIX, describeVikingCapture, linkPageMetad
           if (fs.exists(target)) throw new Error("Destination already exists; preserve it and inspect before retrying.");
           fs.mkdir(`${job2.root}/homebrew`, {recursive: true});
           fs.rename(folder, target);
+          await openUp(target);
           job2.output = beside ? destination : target;
           job2.published = [target];
           job2.artifact.nextAction = "shadowmount";

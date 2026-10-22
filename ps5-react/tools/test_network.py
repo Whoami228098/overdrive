@@ -69,10 +69,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with self.guard:
                 first = ("refuse", self.headers["Range"]) not in self.retried
                 self.retried.add(("refuse", self.headers["Range"]))
-            # The first range's first answer is archive.org's HTML error page; it must not read as a web page.
-            if busy > 6 or (first and self.headers["Range"].startswith("bytes=0-")):
+                # Exercise all three refusals even when a fast host completes ranges
+                # before seven requests overlap. Choose and record under the same lock.
+                refuse = busy > 6 or (first and (len(self.refused) < 3 or self.headers["Range"].startswith("bytes=0-")))
                 status = (500, 503, 429)[len(self.refused) % 3]
-                self.refused.append(status)
+                if refuse:
+                    self.refused.append(status)
+            # The first range's first answer is archive.org's HTML error page; it must not read as a web page.
+            if refuse:
                 body = b"<html><body>Internal Server Error</body></html>" if status == 500 else b""
                 self.send_response(status)
                 if status == 503: self.send_header("Retry-After", "0")

@@ -10,6 +10,8 @@
   files before opening them, so cover loading cannot block behind a full-library
   reread or a pipe.
 - Preserve the session lifecycle and existing user download checkpoints.
+- Apply executable permissions to unpacked PS5 torrent games before publishing
+  them as ready, matching the archive extraction path.
 - Increase the bounded torrent profile to 128 peer connections, four disk I/O
   workers and an 8 MiB pending-write queue; explicitly retain unlimited download
   bandwidth. This changes capacity, not the bandwidth remote peers provide.
