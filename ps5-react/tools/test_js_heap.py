@@ -61,7 +61,7 @@ extern "C" void JS_SetGCThreshold(JSRuntime* r, size_t n) { r->threshold = n; }
 extern "C" void JS_RunGC(JSRuntime* r) { ++r->collections; }
 int64_t clock_us() { return 1000000; }
 void expect_accounting(size_t runtime_bytes) {
- JSRuntime rt = {};
+ JSRuntime rt = {256 * 1024, 0};
  GcScheduler gc(clock_us);
  assert(gc.frame(&rt, 0, 0, 1000) == nullptr);
  assert(rt.threshold == runtime_bytes + 16 * MiB);
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
    expect_accounting(0);
  } else if (!std::strcmp(argv[1], "catalog")) {
    void* p = f->js_malloc(nullptr, 58 * MiB);
-   JSRuntime rt = {};
+   JSRuntime rt = {256 * 1024, 0};
    GcScheduler gc(clock_us);
    gc.frame(&rt, 0, 0, 1000);
    assert(rt.threshold >= 58 * MiB + overhead + 16 * MiB);
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
    f->js_free(nullptr, p);
  } else if (!std::strcmp(argv[1], "idle")) {
    void* a = f->js_malloc(nullptr, MiB);
-   JSRuntime rt = {};
+   JSRuntime rt = {256 * 1024, 0};
    GcScheduler gc(clock_us);
    gc.frame(&rt, 0, 0, 1000);
    void* b = f->js_malloc(nullptr, 6 * MiB);
