@@ -14,8 +14,20 @@ namespace {
 const JSMallocFunctions* inner = nullptr;
 std::size_t live = 0;
 
+// Match the pinned QuickJS allocator's malloc_size, including its per-block
+// accounting overhead. Payload bytes alone undercount React's many small blocks
+// and can put a GC threshold below the bytes QuickJS already considers live.
+#if defined(__APPLE__)
+constexpr std::size_t kBlockOverhead = 0;
+#else
+constexpr std::size_t kBlockOverhead = 8;
+#endif
+std::size_t accounted_size(const void* ptr) {
+  return ptr ? inner->js_malloc_usable_size(ptr) + kBlockOverhead : 0;
+}
+
 void* counted(void* ptr) {
-  if (ptr) live += inner->js_malloc_usable_size(ptr);
+  live += accounted_size(ptr);
   return ptr;
 }
 
@@ -23,15 +35,15 @@ void* js_calloc(void* opaque, std::size_t count, std::size_t size) { return coun
 void* js_malloc(void* opaque, std::size_t size) { return counted(inner->js_malloc(opaque, size)); }
 
 void js_free(void* opaque, void* ptr) {
-  if (ptr) live -= inner->js_malloc_usable_size(ptr);
+  live -= accounted_size(ptr);
   inner->js_free(opaque, ptr);
 }
 
 void* js_realloc(void* opaque, void* ptr, std::size_t size) {
-  const std::size_t before = ptr ? inner->js_malloc_usable_size(ptr) : 0;
+  const std::size_t before = accounted_size(ptr);
   void* moved = inner->js_realloc(opaque, ptr, size);
   // A failed realloc leaves the block as it was; a zero size frees it.
-  if (moved || size == 0) live = live - before + (moved ? inner->js_malloc_usable_size(moved) : 0);
+  if (moved || size == 0) live = live - before + accounted_size(moved);
   return moved;
 }
 
@@ -48,7 +60,7 @@ constexpr std::size_t kMinGarbage = 512 * 1024;
 constexpr int kStillFrames = 3;
 // The room after a collection: QuickJS's 1.5 times what survived, but at least this much, so a burst of
 // input (React allocates on every key) does not reach the threshold before an idle frame comes.
-constexpr std::size_t kMinRoom = 8 * 1024 * 1024;
+constexpr std::size_t kMinRoom = 16 * 1024 * 1024;
 
 constexpr std::size_t kCeiling = kJsMemoryLimit - kJsMemoryLimit / 8;
 

@@ -125,11 +125,13 @@ def main():
          ROOT.parent / "app/browse/empty-catalog.test.mjs",
          ROOT.parent / "app/data/user-catalog.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
+    run(["node", "--test", ROOT.parent / "app/search/search.test.mjs"], log=BUILD / "search-tests.log")
     # Exercise every pure JavaScript runtime fixture, including the full native
     # task bridge and the reconciler-backed motion test, before native linking.
     run(["node", "--test", *sorted((ROOT / "runtime/js").rglob("*.test.mjs"))],
         log=BUILD / "native-network-tests.log")
     run(["python3", ROOT / "tools/test_native_imports.py"], log=BUILD / "native-import-tests.log")
+    run(["python3", ROOT / "tools/test_js_heap.py"], log=BUILD / "js-heap-tests.log")
     # The optional backend is built from hash-pinned public sources with this same SDK.
     import importlib.util
     torrent_spec = importlib.util.spec_from_file_location("overdrive_torrent_build", ROOT / "native/ps5/torrent_build.py")

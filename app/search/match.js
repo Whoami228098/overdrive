@@ -12,12 +12,13 @@ import { games } from '../data/catalog.js';
     const needle = fold(query.trim());
     if (!needle) return games;
     // Word-start and title-start matches rank above substring hits.
+    const wordStart = new RegExp(`(^| )[a-z0-9]*${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
     const scored = [];
     games.forEach((game, i) => {
       if (!haystacks[i].includes(needle)) return;
       let score = 0;
       if (lowerTitles[i].startsWith(needle)) score = 3;
-      else if (new RegExp(`(^| )[a-z0-9]*${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(lowerTitles[i])) score = 2;
+      else if (wordStart.test(lowerTitles[i])) score = 2;
       else if (lowerTitles[i].includes(needle)) score = 1;
       else score = 0;
       scored.push([score, i]);

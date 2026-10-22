@@ -3,7 +3,7 @@
 
 import '../assets/Inter-Regular.ttf';
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SPAN_MAX, fitBytes } from '../i18n/fit.js';
 import { useLocale, useT } from '../i18n/index.js';
 import { Keyboard } from './Keyboard.jsx';
@@ -41,9 +41,20 @@ import { FocusScope, ScrollView, Text, View, VirtualList, motion } from '@ps5-re
   }
   // The first column of results and suggestions goes back to the keyboard on Left.
   var TO_KEYBOARD = "search-keyboard";
-  function Results({ query, onOpenGame }) {
+  const gameKey = (game) => game.id;
+  var Results = (0, memo)(function Results({ query, onOpenGame }) {
     const t2 = useT();
-    const results = searchGames(query);
+    const results = (0, useMemo)(() => searchGames(query), [query]);
+    const renderItem = (0, useCallback)(({ item: game, index }) => (
+      // Keep row elements cached while focus or the surrounding screen changes.
+      /* @__PURE__ */ (0, jsx)(GameCard, {
+        game,
+        width: CARD_WIDTH3,
+        onPress: () => onOpenGame(game),
+        rowEnd: index % COLUMNS3 === COLUMNS3 - 1 || index === results.length - 1,
+        rowStart: index % COLUMNS3 === 0 ? TO_KEYBOARD : void 0
+      })
+    ), [onOpenGame, results]);
     if (!results.length) return /* @__PURE__ */ (0, jsx)(NoResults, { query: query.trim() });
     return /* @__PURE__ */ (0, jsxs)(Fragment, { children: [
       /* @__PURE__ */ (0, jsxs)(Text, { style: { marginBottom: 6, paddingHorizontal: 12, fontFamily: "Inter-Regular", fontSize: 30, fontWeight: 600, color: "#f2f2f3", lineHeight: 42, letterSpacing: -0.75 }, children: [
@@ -59,24 +70,12 @@ import { FocusScope, ScrollView, Text, View, VirtualList, motion } from '@ps5-re
           itemHeight: CARD_HEIGHT2,
           rowGap: 16,
           columnGap: 16,
-          keyExtractor: (game) => game.id,
-          renderItem: ({ item: game, index }) => (
-            // Right stops at the row's end instead of falling through to the header.
-            /* @__PURE__ */ (0, jsx)(
-              GameCard,
-              {
-                game,
-                width: CARD_WIDTH3,
-                onPress: () => onOpenGame(game),
-                rowEnd: index % COLUMNS3 === COLUMNS3 - 1 || index === results.length - 1,
-                rowStart: index % COLUMNS3 === 0 ? TO_KEYBOARD : void 0
-              }
-            )
-          )
+          keyExtractor: gameKey,
+          renderItem
         }
       ) }, query)
     ] });
-  }
+  });
   function SearchScreen({ onBack, onOpenGame }) {
     const query = useQuery();
     const settled = useSettled(query);

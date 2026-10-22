@@ -461,6 +461,7 @@ bool run_proof() {
     config.log = react_log;
     config.max_stack_size = 1024 * 1024;
     config.memory_limit = kJsMemoryLimit;
+    async_log::write("[PS5-REACT] JavaScript heap cap=%zu MiB", kJsMemoryLimit / (1024 * 1024));
     config.malloc_functions = js_heap_functions();
     config.install_host_globals = ps5_react_install_host_api;
     runtime = er_runtime_init(&config);

@@ -12,24 +12,27 @@ extern "C" {
 
 // The bridge's default JS-heap allocator, counting the bytes it holds. Pass it as
 // ErRuntimeConfig.malloc_functions; everything else runs on the render thread.
+// Counts the same per-block overhead as the pinned QuickJS memory limit.
 const JSMallocFunctions* js_heap_functions();
 
-// ErRuntimeConfig.memory_limit on both hosts. 64 MiB of the title's 256 MiB heap: a store's catalog and
-// a long download's state stay under 25 MiB live, and the rest leaves a collection room to run.
-constexpr std::size_t kJsMemoryLimit = 64 * 1024 * 1024;
+// ErRuntimeConfig.memory_limit on both hosts. A 4,000-entry user catalog plus
+// mounted browse/search trees can retain over 50 MiB before allocator overhead.
+// A 96 MiB cap leaves room for interactive allocations within the 256 MiB title
+// heap; it is an upper bound, not an eagerly allocated reservation.
+constexpr std::size_t kJsMemoryLimit = 96 * 1024 * 1024;
 
 // QuickJS collects cycles when its heap grows past a threshold, in whichever
 // allocation crosses it: a full mark-and-sweep of every live object (tens of
 // milliseconds on the PS5 for a store's catalog) inside the frame that handles a
 // key press. This collects in idle frames instead (half a second after the last
 // input), once a third of the room before that threshold is garbage, so a burst
-// of input starts with at least two thirds of it. The room is at least 8 MiB (more
-// than QuickJS's 1.5 times what survived while that is under 16 MiB), so a burst of
+// of input starts with at least two thirds of it. The room is at least 16 MiB (more
+// than QuickJS's 1.5 times what survived while that is under 32 MiB), so a burst of
 // key presses does not reach the threshold before an idle frame comes.
 // It also keeps the threshold an eighth of kJsMemoryLimit below the limit: QuickJS
 // sets it to 1.5 times what survived a collection, and an allocation past the limit
-// fails without collecting first, so with over 21 MiB live the garbage of a burst
-// of input ran into the limit ("out of memory") before any collection.
+// fails without collecting first, so a large retained tree must still leave
+// room for temporary allocations between collections.
 class GcScheduler {
 public:
   // `clock` is the host's monotonic microsecond clock, to time collections.

@@ -88,8 +88,13 @@ tens of milliseconds on the PS5 that runs inside whatever allocation crosses its
 threshold, often the frame handling a key press. Hosts install a counting
 allocator (`native/shared/js_heap.cpp`) and collect in idle frames, half a
 second after the last input, once a third of the room before that threshold is
-garbage, so bursts of input start with most of it. The room is at least 8 MiB,
-more than QuickJS's 1.5 times what survived while that is under 16 MiB, and the
+garbage, so bursts of input start with most of it. Accounting includes the pinned
+QuickJS allocator's per-block overhead (zero on Apple, eight bytes elsewhere),
+so a tree with many small blocks cannot put the threshold below the runtime's
+own allocation count. The JavaScript limit is 96 MiB, within the title's shared
+heap, to accommodate large user catalogs and both mounted browse/search trees.
+This is a cap, not a reservation. The room is at least 16 MiB,
+more than QuickJS's 1.5 times what survived while that is under 32 MiB, and the
 threshold stays an eighth below `memory_limit`: QuickJS fails an allocation past
 the limit without collecting first. An idle collection also waits for three
 frames in a row that repainted under a fiftieth of the screen, so it does not

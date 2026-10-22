@@ -1,5 +1,15 @@
 # Changelog
 
+## Overdrive 1.0.18 — large-catalog navigation
+
+- Count QuickJS's per-allocation overhead when scheduling garbage collection.
+  A large retained tree could otherwise exceed the host's threshold immediately
+  after collection, causing repeated pauses during browse and search scrolling.
+- Raise the JavaScript cap from 64 to 96 MiB and minimum collection headroom from
+  8 to 16 MiB. The limit remains bounded inside the existing process heap.
+- Keep search results and row callbacks stable across unrelated screen updates,
+  and compile the word-matching expression once per query instead of per hit.
+
 ## Overdrive 1.0.17 — bounded peer receive window
 
 - Request a 512 KiB receive buffer for peer sockets instead of relying on the
