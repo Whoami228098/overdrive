@@ -58,7 +58,7 @@ void log(const char* text) {
 int main() { return !ps5_react_audit_imports(log) && found && counted && called == 0 ? 0 : 1; }
 ''')
         executable = self.root / 'audit-test'
-        subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror', '-no-pie',
+        subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror', '-no-pie', '-fno-builtin',
             str(audit), str(driver), '-Wl,--defsym=fixture_missing=0', '-o', str(executable)], check=True)
         subprocess.run([str(executable)], check=True, timeout=10)
 

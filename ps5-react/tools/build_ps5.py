@@ -254,7 +254,8 @@ def main():
     audit_cpp.write_text(audit_source([]))
     def compile_audit():
         run(["sh", hui / "tooling/prospero-clang18", "-std=c++20", "-O2", "-gline-tables-only",
-             "-Wall", "-Wextra", "-Werror", "-fno-exceptions", "-fno-rtti", "-c", audit_cpp, "-o", audit_obj],
+             "-Wall", "-Wextra", "-Werror", "-fno-exceptions", "-fno-rtti", "-ffreestanding",
+             "-fno-builtin", "-fno-stack-protector", "-c", audit_cpp, "-o", audit_obj],
             env=env, log=BUILD / "compile-import-audit.log")
     compile_audit()
     objects.append(audit_obj)

@@ -43,7 +43,7 @@ def imports(path):
 
 def audit_source(entries):
     """No imported function is called. Volatile reads keep null checks observable."""
-    lines = ['#include <cstdio>', 'using Address = void (*)();',
+    lines = ['using Address = void (*)();',
              'struct Import { const char* name; Address volatile address; };']
     for i, symbol in enumerate(entries):
         name = symbol['name']
@@ -56,6 +56,12 @@ def audit_source(entries):
         lines.append('  {' + json.dumps(symbol['name']) + f', reinterpret_cast<Address>(&import_{i})' + '},')
     # The initial link uses a sentinel; it is replaced by the complete table before conversion.
     lines += ['  {nullptr, nullptr}', '};',
+              'static void append(char*& out, const char* end, const char* text) {',
+              '  while (*text && out < end) *out++ = *text++;', '}',
+              'static void number(char*& out, const char* end, unsigned value) {',
+              '  char digits[16]; unsigned count = 0;',
+              "  do { digits[count++] = char('0' + value % 10); value /= 10; } while (value);",
+              '  while (count && out < end) *out++ = digits[--count];', '}',
               'extern "C" bool ps5_react_audit_imports(void (*log)(const char*)) {',
               '  unsigned checked = 0, missing = 0; char line[256];',
               '  for (const auto& entry : imports) {',
@@ -63,9 +69,12 @@ def audit_source(entries):
               '    ++checked;',
               '    if (entry.address != nullptr) continue;',
               '    ++missing;',
-              '    std::snprintf(line, sizeof line, "native import NULL symbol=%s", entry.name);',
+              '    char* out = line; const char* end = line + sizeof line - 1;',
+              '    append(out, end, "native import NULL symbol="); append(out, end, entry.name); *out = 0;',
               '    log(line);', '  }',
-              '  std::snprintf(line, sizeof line, "native imports checked=%u unresolved=%u", checked, missing);',
+              '  char* out = line; const char* end = line + sizeof line - 1;',
+              '  append(out, end, "native imports checked="); number(out, end, checked);',
+              '  append(out, end, " unresolved="); number(out, end, missing); *out = 0;',
               '  log(line);', '  return missing == 0;', '}', '']
     return '\n'.join(lines)
 
