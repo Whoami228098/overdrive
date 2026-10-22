@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
 #include "torrent_api.hpp"
+#include "torrent_io_config.hpp"
 #include <libtorrent/session.hpp>
 #include <libtorrent/session_params.hpp>
 #include <libtorrent/posix_disk_io.hpp>
@@ -32,6 +33,10 @@
 #include <thread>
 #include <fcntl.h>
 #include <unistd.h>
+
+#if TORRENT_USE_MADVISE || TORRENT_HAS_FADVISE
+#error "Torrent optional advice hints must remain disabled after upstream configuration"
+#endif
 
 namespace torrent {
 namespace {

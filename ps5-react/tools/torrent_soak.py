@@ -42,7 +42,7 @@ def main():
     source = output / 'exact-native-source'
     source.mkdir(exist_ok=True)
     inputs = {}
-    for name in ('torrent_api.cpp', 'torrent_api.hpp'):
+    for name in ('torrent_api.cpp', 'torrent_api.hpp', 'torrent_io_config.hpp'):
         path = 'ps5-react/native/shared/' + name
         data = subprocess.check_output(['git', 'show', commit + ':' + path], cwd=ROOT)
         (source / name).write_bytes(data)
@@ -67,7 +67,8 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 foreach(flag build_tests build_examples build_tools build_benchmark deprecated-functions logging)
   set(${flag} OFF CACHE BOOL "" FORCE)
 endforeach()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-omit-frame-pointer -DTORRENT_BROKEN_RANDOM_DEVICE=1 -DTORRENT_USE_MADVISE=0 -DTORRENT_HAS_FADVISE=0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined -fno-omit-frame-pointer -DTORRENT_BROKEN_RANDOM_DEVICE=1")
+add_compile_options(-include "''' + str(source / 'torrent_io_config.hpp') + '''")
 add_link_options(-fsanitize=address,undefined -Wl,--wrap=mmap -Wl,--wrap=madvise)
 find_package(OpenSSL REQUIRED)
 ''' + ('''find_package(PkgConfig REQUIRED)
@@ -91,6 +92,8 @@ target_link_libraries(native-soak PRIVATE ''' + ('PkgConfig::HOST_LT' if args.sy
     for flag in ('-fsanitize=address,undefined', '-DTORRENT_BROKEN_RANDOM_DEVICE=1', '-DTORRENT_MINIMAL=1'):
         if flag not in native_command:
             raise RuntimeError('Missing native test compile flag: ' + flag)
+    if str(source / 'torrent_io_config.hpp') not in native_command:
+        raise RuntimeError('Missing post-platform torrent I/O configuration header')
     if not args.system_library:
         random_command = next(c['command'] for c in compilation if Path(c['file']).resolve() == upstream / 'src/random.cpp')
         if not all(flag in random_command for flag in ('-fsanitize=address,undefined', '-DTORRENT_BROKEN_RANDOM_DEVICE=1', str(boost))):

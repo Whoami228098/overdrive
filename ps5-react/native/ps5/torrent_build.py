@@ -80,7 +80,8 @@ def prepare(sdk, ports, env, build):
         '-DOPENSSL_USE_STATIC_LIBS=TRUE']
     # Keep line information for console crash symbolization without changing optimization.
     cmake += ['-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -gline-tables-only']
-    cmake += ['-DCMAKE_CXX_FLAGS=-DTORRENT_BROKEN_RANDOM_DEVICE=1 -DTORRENT_USE_MADVISE=0 -DTORRENT_HAS_FADVISE=0']
+    io_config = ROOT / 'native/shared/torrent_io_config.hpp'
+    cmake += ['-DCMAKE_CXX_FLAGS=-DTORRENT_BROKEN_RANDOM_DEVICE=1 -include "' + str(io_config) + '"']
     for name, command in [('configure', cmake), ('build', ['cmake', '--build', str(destination), '--target', 'torrent-rasterbar', '--parallel', '6'])]:
         log_path = build / f'torrent-{name}.log'
         with log_path.open('w') as log:
@@ -98,7 +99,6 @@ def prepare(sdk, ports, env, build):
         'includes': [source / 'include', boost],
         'definitions': ['-DPS5_REACT_TORRENT=1', '-DTORRENT_MINIMAL=' + minimal,
             '-DTORRENT_BROKEN_RANDOM_DEVICE=1',
-            '-DTORRENT_USE_MADVISE=0', '-DTORRENT_HAS_FADVISE=0',
             '-DTORRENT_NO_DEPRECATE', '-DTORRENT_DISABLE_LOGGING',
             '-DTORRENT_USE_OPENSSL', '-DTORRENT_USE_LIBCRYPTO', '-DTORRENT_SSL_PEERS', '-DOPENSSL_NO_SSL2',
             '-DBOOST_ASIO_ENABLE_CANCELIO', '-DBOOST_ASIO_NO_DEPRECATED'],
