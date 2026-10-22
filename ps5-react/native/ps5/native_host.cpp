@@ -176,11 +176,20 @@ std::size_t image_cache_bytes() {
   return heap >= 256 * MiB ? 64 * MiB : heap >= 192 * MiB ? 40 * MiB : 24 * MiB;
 }
 
-// A file in the app folder's dev/ directory. After console filesystem elevation /app0 is only a
-// logical path, so it is resolved like the native API's paths.
+// A test deploy may opt in to a writable dev/ directory outside a read-only app image.
+// Select once at startup; ordinary installs keep the resolved /app0/dev/ behavior.
 std::string dev_path(const char* name) {
-  char path[PATH_MAX];
-  return host::resolve_path((std::string("/app0/dev/") + name).c_str(), path, sizeof path) ? path : "";
+  static const std::string root = [] {
+    const std::string writable = std::string("/data/ps5-react/") + PS5_REACT_TITLE + "/dev/";
+    struct stat info;
+    if (stat(writable.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) {
+      async_log::write("[PS5-REACT] writable test directory=%s", writable.c_str());
+      return writable;
+    }
+    char path[PATH_MAX];
+    return host::resolve_path("/app0/dev/", path, sizeof path) ? std::string(path) : std::string();
+  }();
+  return root.empty() ? "" : root + name;
 }
 
 constexpr std::int64_t duration_us = static_cast<std::int64_t>(PS5_REACT_TIMEOUT) * 1000000;

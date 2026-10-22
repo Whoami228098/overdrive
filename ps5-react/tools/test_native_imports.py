@@ -135,6 +135,55 @@ int main() {
                 '-o', str(executable)], check=True)
             subprocess.run([str(executable)], check=True, timeout=10)
 
+    def test_actual_dev_path_requires_explicit_directory_and_keeps_fallback(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / 'native/ps5/native_host.cpp').read_text()
+        start = source.index('std::string dev_path(const char* name) {')
+        function = source[start:source.index('\n}\n', start) + 3]
+        driver = self.root / 'dev-path-driver.cpp'
+        driver.write_text('''#include <string>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+#include <climits>
+#include <sys/stat.h>
+#define PS5_REACT_TITLE "PPSATEST"
+int mode = 0, resolved = 0;
+namespace async_log { void write(const char*, ...) {} }
+namespace host {
+bool resolve_path(const char* logical, char* out, size_t size) {
+  ++resolved;
+  if (mode == 2 || std::strcmp(logical, "/app0/dev/")) return false;
+  std::snprintf(out, size, "/fixture/app/dev/"); return true;
+}
+}
+int test_stat(const char* path, struct stat* out) {
+  if (std::strcmp(path, "/data/ps5-react/PPSATEST/dev/")) return -1;
+  if (mode != 1 && mode != 3) return -1;
+  out->st_mode = mode == 1 ? S_IFDIR : S_IFREG;
+  return 0;
+}
+#define stat(...) test_stat(__VA_ARGS__)
+''' + function + '''
+int main(int argc, char** argv) {
+  if (argc != 2) return 1;
+  mode = std::atoi(argv[1]);
+  const std::string expected = mode == 1 ? "/data/ps5-react/PPSATEST/dev/" : mode == 2 ? "" : "/fixture/app/dev/";
+  const std::string first = dev_path("commands.txt");
+  if (first != (expected.empty() ? "" : expected + "commands.txt")) return 2;
+  const int calls = resolved;
+  if (calls != (mode == 1 ? 0 : 1)) return 3;
+  mode = 1;
+  if (dev_path("profile.folded") != (expected.empty() ? "" : expected + "profile.folded")) return 4;
+  return resolved == calls ? 0 : 5;
+}
+''')
+        executable = self.root / 'dev-path-test'
+        subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror',
+                        str(driver), '-o', str(executable)], check=True)
+        for mode in range(4):
+            subprocess.run([str(executable), str(mode)], check=True, timeout=10)
+
 
 if __name__ == '__main__':
     unittest.main()

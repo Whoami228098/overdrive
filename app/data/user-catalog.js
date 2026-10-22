@@ -201,17 +201,19 @@ function loadUserCatalog() {
       } catch { /* a bad entry never blocks the rest of the catalog */ }
     }
     for (const entry of modList) {
-      if (!entry.title || !entry.game_title || !entry.source) continue;
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      if (![entry.title, entry.game_title, entry.source].every((value) => typeof value === 'string' && value.trim())) continue;
+      const size = typeof entry.size_mb === 'number' || typeof entry.size_mb === 'string' ? Number(entry.size_mb) : 0;
       mods.push({
         id: hashId(`${entry.title}|${entry.game_title}`),
         title: String(entry.title),
         game: String(entry.game_title),
-        platform: String(entry.platform || 'ps4').toLowerCase(),
+        platform: typeof entry.platform === 'string' ? entry.platform.toLowerCase() : 'ps4',
         source: String(entry.source),
         isMagnet: String(entry.source).startsWith('magnet:'),
-        version: entry.version || null,
-        sizeMb: Number(entry.size_mb) || null,
-        coverUrl: entry.cover_url || null
+        version: typeof entry.version === 'string' ? entry.version : null,
+        sizeMb: Number.isFinite(size) && size > 0 ? size : null,
+        coverUrl: typeof entry.cover_url === 'string' ? entry.cover_url : null
       });
     }
   }

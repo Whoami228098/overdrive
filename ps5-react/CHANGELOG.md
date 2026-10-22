@@ -1,5 +1,12 @@
 # Changelog
 
+## Overdrive 1.0.11 — malformed catalog isolation and writable console tests
+
+- Skip malformed mod records without preventing valid user games from loading.
+- Let an explicitly created per-title dev directory receive commands and
+  screenshots while an application image is mounted read-only.
+- Keep the 1.0.10 empty-catalog and guarded HDMI EDID startup fixes.
+
 ## Overdrive 1.0.10 — empty catalog startup and optional HDMI EDID
 
 - Hide popular, spotlight, genre and chart sections when their source lists are

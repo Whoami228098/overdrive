@@ -123,6 +123,7 @@ def main():
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
          ROOT.parent / "app/game/game-open.test.mjs",
          ROOT.parent / "app/browse/empty-catalog.test.mjs",
+         ROOT.parent / "app/data/user-catalog.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
     # Exercise every pure JavaScript runtime fixture, including the full native
     # task bridge and the reconciler-backed motion test, before native linking.

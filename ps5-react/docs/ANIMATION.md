@@ -519,6 +519,12 @@ the current time in milliseconds, runs its steps once; each line is echoed as a
 `command:` line in the kernel log. The host polls only when the app folder has a
 `dev` directory, which a build never creates.
 
+For a read-only app image, a test operator can instead create
+`/data/ps5-react/<titleId>/dev/` before launch. When that directory exists, the
+PS5 host selects it for all dev inputs, live commands, screenshots and profile
+output for that run. It logs the selected path; removing the directory before
+the next launch restores `/app0/dev/`. Builds never create this opt-in directory.
+
 #### Profiling JavaScript
 
 When a slow frame's time is in `js` or `react`, a sampling profiler shows which
