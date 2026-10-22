@@ -540,5 +540,6 @@
     "mods.activation.cheatrunner": "Files installed. Open CheatRunner, refresh the game trainer and enable the required options. Restart the game if the patch requires it.",
     "mods.activation.etahen": "Files installed. Refresh the etaHEN cheat cache, then open its cheat menu for this game. No options were enabled automatically.",
     "mods.activation.goldhen": "Files installed. Open the GoldHEN cheat menu in the game and enable the required options.",
-    "mods.activation.goldhenPatch": "Patch file installed. The GoldHEN game_patch plugin must be enabled separately; select its options and relaunch the game."
+    "mods.activation.goldhenPatch": "Patch file installed. The GoldHEN game_patch plugin must be enabled separately; select its options and relaunch the game.",
+    "game.catalogMissing": "This game is no longer in the current catalog."
 }

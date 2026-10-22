@@ -3,19 +3,20 @@
 
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useEffect, useState } from 'react';
-import { AppRegistry, FocusScope, ReleaseImages, View } from '@ps5-react/core';
+import { AppRegistry, FocusScope, ReleaseImages, Text, View } from '@ps5-react/core';
 import { BrowsePage } from './browse/BrowsePage.jsx';
 import { DownloadsScreen } from './downloads/DownloadsScreen.jsx';
 import { FilesScreen } from './files/FilesScreen.jsx';
 import { GameScreen } from './game/index.jsx';
 import { HomebrewGame, HomebrewScreen } from './homebrew/HomebrewScreen.jsx';
-import { LocaleProvider, useLocale } from './i18n/index.js';
+import { LocaleProvider, useLocale, useT } from './i18n/index.js';
 import { SearchScreen } from './search/index.jsx';
 import { NO_FILTERS, getGame, warmCovers } from './state/catalog.js';
 import { isHomebrewId } from './state/homebrew.js';
 import { NavProvider, useIsImmersive, useNavActions, useNavState } from './state/nav.jsx';
 import { StoreFreeze, StoreProvider } from './state/store.jsx';
 import { Header } from './ui/Header.jsx';
+import { Button2 } from './ui/Button.jsx';
 import { Legend } from './ui/Legend.jsx';
 import { Splash } from './ui/Splash.jsx';
 import { IceBackground } from './ui/IceBackground.jsx';
@@ -27,12 +28,20 @@ import { useInterfaceSounds } from './ui/sounds.js';
 import { useShowLibrary } from './ui/useSections.js';
 import { VERSION } from './version.js';
 
+  function MissingGame({onBack}) {
+    const t=useT();
+    return (0, jsxs)(View,{style:{flex:1,alignItems:"center",justifyContent:"center",gap:24},children:[
+      (0, jsx)(Text,{style:{fontFamily:"Inter-Regular",fontSize:27,color:"#f2f2f3"},children:t("game.catalogMissing")}),
+      (0, jsx)(Button2,{autoFocus:true,label:t("hints.back"),onPress:onBack})
+    ]});
+  }
   function Screen({ screen: screen2 }) {
     const { openGame, pop } = useNavActions();
     // "Browse games" on an empty Downloads opens the store front as Discover does, whatever section
     // (Favorites, Top rated) the store was left on.
     const showLibrary = useShowLibrary();
     const openCard = (game) => openGame(game.id, `card:${game.id}`);
+    if (screen2.name === "game" && !getGame(screen2.id)) return (0, jsx)(MissingGame,{onBack:pop});
     // A homebrew app's page reads its file from the catalog first, and says so when the app is gone.
     if (screen2.name === "game" && isHomebrewId(screen2.id)) return /* @__PURE__ */ (0, jsx)(HomebrewGame, { game: getGame(screen2.id), download: screen2.download, onBack: pop, onOpenGame: openCard });
     if (screen2.name === "game") return /* @__PURE__ */ (0, jsx)(GameScreen, { game: getGame(screen2.id), download: screen2.download, onBack: pop, onOpenGame: openCard });

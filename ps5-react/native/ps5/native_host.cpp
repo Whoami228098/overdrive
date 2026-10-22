@@ -463,6 +463,7 @@ bool run_proof() {
     ErRuntimeConfig config = {};
     config.screen_width = width; config.screen_height = height;
     config.screen_scale = 2;
+    config.extra_intrinsics = ER_JS_INTRINSIC_TYPED_ARRAYS | ER_JS_INTRINSIC_BIGINT;
     config.log = react_log;
     config.max_stack_size = 1024 * 1024;
     config.memory_limit = kJsMemoryLimit;

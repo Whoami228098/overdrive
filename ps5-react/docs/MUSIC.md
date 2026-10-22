@@ -38,6 +38,8 @@ audio callback, then releases ring owners. No JS control opens a file, decodes
 audio or joins a worker.
 
 `tools/test_music.py` compiles the actual worker with ASan/UBSan/leak checking.
+It needs a host C++20 compiler and the FFmpeg command-line tool (also used by the
+normal build's music checks); `npm run setup` installs these prerequisites.
 Its owned FFmpeg sine fixtures exercise resampling, mono duplication, pause and
 audible completion, missing/corrupt-file recovery, superseded requests and
 repeated shutdown/restart. A complete decoded stereo output is compared with

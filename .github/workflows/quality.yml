@@ -77,6 +77,8 @@ jobs:
       - name: Render the real store with owned audio and mod fixtures
         if: ${{ inputs.preview_only }}
         env:
+          CC: clang
+          CXX: clang++
           LIBGL_ALWAYS_SOFTWARE: '1'
           SDL_AUDIODRIVER: dummy
         run: xvfb-run -a -s '-screen 0 1920x1080x24' python3 -u ps5-react/tools/check_store_preview.py

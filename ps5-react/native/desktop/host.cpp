@@ -249,6 +249,8 @@ struct Host {
     ps5_react_start_sound();
     ErRuntimeConfig cfg = {};
     cfg.screen_width = width; cfg.screen_height = height; cfg.screen_scale = 2;
+    // Binary filesystem buffers and the pinned SHA-256 module need this explicit lite-runtime surface.
+    cfg.extra_intrinsics = ER_JS_INTRINSIC_TYPED_ARRAYS | ER_JS_INTRINSIC_BIGINT;
     cfg.memory_limit = kJsMemoryLimit;
     cfg.malloc_functions = js_heap_functions();
 #ifdef __APPLE__

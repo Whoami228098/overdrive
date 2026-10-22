@@ -21,13 +21,13 @@ Linux)
     sudo apt-get install -y \
         build-essential cmake clang ninja-build nasm pkg-config git curl unzip zip zstd \
         libsdl2-dev libgl-dev libcurl4-openssl-dev libarchive-dev libarchive-tools liblzma-dev libssl-dev zlib1g-dev \
-        clang-18 llvm-18 llvm-18-dev exfatprogs \
+        clang-18 llvm-18 llvm-18-dev exfatprogs ffmpeg \
         nodejs npm python3 python3-pil
     ;;
 Darwin)
     command -v brew >/dev/null || { echo "error: Homebrew is needed: https://brew.sh" >&2; exit 1; }
     echo "→ Homebrew formulae"
-    brew install cmake sdl2 llvm@18 nasm ninja curl libarchive xz openssl@3 python node
+    brew install cmake sdl2 llvm@18 nasm ninja curl libarchive xz openssl@3 python node ffmpeg
     echo "→ Pillow"
     python3 -m pip install -r "$root/ps5-react/requirements.txt"
     ;;

@@ -94,9 +94,9 @@ export function ModsScreen({titleId:initialId,onBack}) {
               <Text style={INK}>{record.version} · {record.format.toUpperCase()}</Text>
               <Text style={MUTED}>{t('mods.authors',{authors:record.authors.join(', ')||'Community'})}</Text>
               <Text style={MUTED}>{target?t('mods.loader',{loader:target.loader}):t('mods.loaderMissing')}</Text>
-              {target&&compatible&&!busy?<Button2 focusKey="mods-install" variant="primary" label={t('mods.install')} onPress={()=>action('install')}/>:null}
-              {!busy?<Button2 focusKey="mods-export" label={t('mods.export')} onPress={()=>action('export')}/>:null}
-              {!busy?<Button2 focusKey="mods-restore" label={t('mods.restore')} onPress={()=>action('restore')}/>:null}
+              {target&&compatible?<Button2 focusKey="mods-install" variant="primary" label={t('mods.install')} onPress={()=>action('install')}/>:null}
+              <Button2 focusKey="mods-export" label={t('mods.export')} onPress={()=>action('export')}/>
+              <Button2 focusKey="mods-restore" label={t('mods.restore')} onPress={()=>action('restore')}/>
               <Text style={MUTED}>{t('mods.activationHelp')}</Text>
             </>:null}
           </>}
