@@ -89,6 +89,12 @@ def main():
                     time.sleep(0.05)
             wait(0.8);shot('01-ice-assembly')
             wait(4);shot('02-store')
+            # This fixture has no hero art, so Spotlight is empty. The visible grid must
+            # still acquire its cover before focus enters it, rather than keep its red tint.
+            with Image.open(out/'02-store.png') as frame:
+                pixels=list(frame.convert('RGB').crop((60,580,300,900)).getdata())
+            placeholder=sum(r>150 and g<70 and b<80 for r,g,b in pixels)/len(pixels)
+            if placeholder>.05:raise RuntimeError(f'Visible grid cover stayed a red placeholder: {placeholder:.1%}')
             music=next((x for x in records() if x.get('focusKey')=='nav:music'),None)
             if not music or 'Owned Audio Fixture' not in music.get('text',''):raise RuntimeError('Autoplay widget missing')
             press('nav:music');shot('03-paused')
@@ -128,6 +134,7 @@ def main():
     if 'Image.load ' in output or 'could not read local image' in output:raise RuntimeError('A local cover failed to load; inspect the screenshots and native.log')
     if output.count('music decoded id=')<2 or 'music ended id=' not in output:raise RuntimeError('Real MP3 stream did not finish and continue')
     result={'passed':True,'hardware_tested':False,'host':'Linux SDL/OpenGL/QuickJS',
+            'visible_grid_cover_loaded_with_empty_spotlight':True,
             'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'audio':'Owned sine MP3s through the actual worker/mixer and dummy output',
             'actions':actions,'screenshots':[p.name for p in sorted(out.glob('*.png'))]}

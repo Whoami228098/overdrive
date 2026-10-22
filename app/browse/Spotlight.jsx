@@ -5,6 +5,7 @@ import '../assets/Inter-Regular.ttf';
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { memo, useEffect, useRef, useState } from 'react';
 import { FIRST_POPULAR } from './PopularRail.jsx';
+import { useSectionShown } from './near.js';
 import { FAMOUS, picked, shuffle } from './picks.js';
 import { SpotlightList } from './SpotlightList.jsx';
 import { useSlides } from './useSlides.js';
@@ -117,6 +118,7 @@ import { AnimatePresence, Image, Text, View, motion } from '@ps5-react/core';
   }
   function Spotlight() {
     const shown = useNavState().top.name === "browse";
+    useSectionShown(featured.length > 0);
     return featured.length ? /* @__PURE__ */ (0, jsx)(Carousel, { shown }) : null;
   }
   var Carousel = (0, memo)(function Carousel2({ shown }) {
