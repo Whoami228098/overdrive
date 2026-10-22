@@ -139,4 +139,14 @@ test('loader routes keep PS5-native patches separate and never use PS4-host chea
   assert.equal(loaderTarget(f.fs,'ps5',record),null);
   const ps4={...record,titleId:'CUSA12345',host:'ps4',platform:'ps4',format:'xml'};
   assert.equal(loaderTarget(f.fs,'ps4',ps4).filename,'CUSA12345.xml');
+  assert.equal(loaderTarget({stat(){throw Error('permission denied');}},'ps5',record),null);
+});
+test('malformed optional pack labels and version lists cannot become React objects',()=>{
+  assert.equal(normalizeRecord({...record,features:[{},null]},'ps5',record.titleId),null);
+  assert.equal(normalizeRecord({...record,source:{repository:{bad:true}}},'ps5',record.titleId).source.repository,'');
+  const f=fixture();
+  f.files.set('/pack/hosts/ps5/index.json',encode(JSON.stringify({version:1,host:'ps5',titles:[
+    {titleId:record.titleId,title:{bad:true},versions:{join:'broken'},file:`hosts/ps5/titles/${record.titleId}.json`}]})));
+  const c=loadModIndex(f.fs,['/pack'],'ps5');
+  assert.equal(c.titles[0].title,record.titleId);assert.deepEqual(c.titles[0].versions,[]);
 });

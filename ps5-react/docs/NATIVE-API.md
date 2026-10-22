@@ -13,6 +13,7 @@ Controller.setLightBar('#38bdf8');
 ```
 
 The hosts opt into typed arrays and BigInt in addition to the QuickJS lite runtime.
+Local `file:///` images resolve the same virtual mount paths as `FileSystem`.
 `FileSystem.readBytes(path)` returns exact bytes as a `Uint8Array`, for regular
 files up to 1 MiB. It is intended for small binary metadata such as `param.sfo`;
 larger binary transfers belong to the asynchronous download/archive APIs.

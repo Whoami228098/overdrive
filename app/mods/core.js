@@ -28,8 +28,11 @@ export function normalizeRecord(item, host, titleId) {
       !Array.isArray(item.features) || !item.features.length) return null;
   const platform = titleId.startsWith('PPSA') ? 'ps5' : 'ps4';
   if (item.platform !== platform || item.loader !== (item.format === 'xml' ? 'patches' : 'cheats')) return null;
+  const features=item.features.slice(0,256).map(x=>cleanText(x)).filter(Boolean);
+  if (!features.length) return null;
   return {...item, title:cleanText(item.title,titleId),
-    features:item.features.slice(0,256).map(x=>cleanText(x)).filter(Boolean),
+    features,source:{repository:cleanText(item.source?.repository),revision:cleanText(item.source?.revision),
+      path:cleanText(item.source?.path),url:cleanText(item.source?.url)},
     authors:Array.isArray(item.authors) ? item.authors.slice(0,32).map(x=>cleanText(x)).filter(Boolean) : [],
     categories:Array.isArray(item.categories) ? item.categories.filter(x=>['graphics','appearance','money','menu','gameplay'].includes(x)) : []};
 }
@@ -45,7 +48,9 @@ export function loadModIndex(fs, roots, host) {
         if (!item || !validId(item.titleId) || seen.has(item.titleId) || host==='ps4' && !item.titleId.startsWith('CUSA') ||
             item.file !== `hosts/${host}/titles/${item.titleId}.json`) return false;
         seen.add(item.titleId); return true;
-      }).map(item=>({...item,title:cleanText(item.title,item.titleId)}));
+      }).map(item=>({...item,title:cleanText(item.title,item.titleId),
+        versions:Array.isArray(item.versions)?item.versions.filter(validVersion).slice(0,256):[],
+        count:Number.isSafeInteger(item.count)&&item.count>0?Math.min(256,item.count):0}));
       if (titles.length) return {root,titles};
     } catch { /* An absent optional pack cannot stop the store. */ }
   }
@@ -121,16 +126,17 @@ export async function installedIdentity(fs, host, titleId, yieldFrame = () => ne
 }
 
 export function loaderTarget(fs, host, record) {
+  const directoryExists=path=>{try{return fs.stat(path)?.isDirectory===true;}catch{return false;}};
   const filename=`${record.titleId}_${record.version}.${record.format}`;
-  if (host==='ps5' && fs.stat('/data/cheatrunner')?.isDirectory) {
+  if (host==='ps5' && directoryExists('/data/cheatrunner')) {
     const dir=record.format==='xml' ? `patches/${record.platform==='ps5' ? 'xml_prospero' : 'xml'}` : `cheats/${record.format}`;
     return {loader:'CheatRunner',directory:`/data/cheatrunner/${dir}`,filename,activation:'cheatrunner'};
   }
-  if (host==='ps5' && record.format!=='xml' && fs.stat('/data/etaHEN')?.isDirectory) {
+  if (host==='ps5' && record.format!=='xml' && directoryExists('/data/etaHEN')) {
     return {loader:'etaHEN',directory:`/data/etaHEN/cheats/${record.format}`,filename,activation:'etahen'};
   }
   if (host==='ps4') {
-    const root=['/data/GoldHEN','/user/data/GoldHEN'].find(path=>fs.stat(path)?.isDirectory);
+    const root=['/data/GoldHEN','/user/data/GoldHEN'].find(directoryExists);
     if (root) return {loader:'GoldHEN',directory:`${root}/${record.format==='xml' ? 'patches/xml' : `cheats/${record.format}`}`,
       filename:record.format==='xml' ? `${record.titleId}.xml` : filename,activation:record.format==='xml' ? 'goldhenPatch' : 'goldhen'};
   }

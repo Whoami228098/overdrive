@@ -57,6 +57,12 @@ JSValue load(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
   JS_FreeCString(ctx, text);
   if (!images::supported_uri(url))
     return JS_ThrowTypeError(ctx, "image.load %s: expected http://, https:// or an absolute file:/// URI (at most 8192 bytes)", url.c_str());
+  if (url.starts_with("file://")) {
+    char resolved[PATH_MAX];
+    if (!host::resolve_path(url.c_str() + 7, resolved, sizeof resolved))
+      return JS_ThrowTypeError(ctx, "image.load: local URI is outside the host filesystem policy");
+    url = std::string("file://") + resolved;
+  }
   int width = 0, height = 0, fit = 0;
   if (JS_ToInt32(ctx, &width, argv[1]) || JS_ToInt32(ctx, &height, argv[2]) || JS_ToInt32(ctx, &fit, argv[3]))
     return JS_EXCEPTION;

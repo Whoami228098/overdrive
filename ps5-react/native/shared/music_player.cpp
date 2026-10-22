@@ -3,6 +3,7 @@
 // Additional attribution term: see LICENSE-ATTRIBUTION.
 #include "music_player.hpp"
 #include "audio/stream_ring.hpp"
+#include "worker_thread.hpp"
 #define DR_MP3_NO_STDIO
 #define DR_MP3_IMPLEMENTATION
 #include "third_party/dr_mp3.h"
@@ -27,7 +28,8 @@ constexpr std::size_t kRingFrames = 32768; // 256 KiB, independent of song lengt
 constexpr std::size_t kBlock = 1024;
 std::mutex mutex;
 std::condition_variable changed;
-std::thread worker;
+WorkerThread worker;
+bool running = false;
 std::atomic<bool> quitting{false};
 std::atomic<bool> paused{false};
 std::atomic<std::uint64_t> generation{0};
@@ -190,16 +192,22 @@ void run() {
 } // namespace
 
 void start() {
-  if (worker.joinable()) return;
+  if (running) return;
   quitting = false;
   paused = false;
-  worker = std::thread(run);
+  // The measured PS5 decode chain uses about 30 KiB; do not depend on a small SDK default stack.
+  running = worker.start(run, 512 * 1024);
+  if (!running) {
+    quitting = true;
+    std::printf("[PS5-REACT] music worker could not start\n");
+  }
 }
 void shutdown() {
   quitting = true;
   generation.fetch_add(1);
   changed.notify_all();
-  if (worker.joinable()) worker.join();
+  if (running) worker.join();
+  running = false;
   std::lock_guard lock(mutex);
   current = {};
   pending.clear();
@@ -207,7 +215,7 @@ void shutdown() {
 }
 std::uint64_t play(std::string path) {
   std::lock_guard lock(mutex);
-  if (!worker.joinable() || quitting) return 0;
+  if (!running || quitting) return 0;
   const float volume = current.volume;
   current = {};
   current.id = next_id++;

@@ -75,7 +75,7 @@ import { VERSION } from './version.js';
     const onBrowse = top.name === "browse";
     const onHomebrew = top.name === "homebrew";
     const keepHomebrew = stack.some((screen2) => screen2.name === "homebrew");
-    const key = top.name === "game" ? `game:${top.id}` : top.name;
+    const key = top.name === "game" || top.name === "mods" ? `${top.name}:${top.id ?? 'all'}` : top.name;
     const immersive = useIsImmersive();
     const { rtl } = useLocale();
     return (

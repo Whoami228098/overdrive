@@ -14,7 +14,7 @@ Music.stop();
 ```
 
 `play` returns an ID immediately. It replaces an older request; there is one
-pending path, one decoder and one 32,768-frame stereo ring (256 KiB). Only local
+pending path, one decoder, an explicit 512 KiB worker stack and one 32,768-frame stereo ring (256 KiB). Only local
 paths accepted by the host's normal filesystem policy are supported. Opening,
 reading, MP3 decoding, mono duplication and conversion to the mixer's 48 kHz
 format run on one worker. A bounded linear interpolator retains its phase

@@ -78,7 +78,8 @@ export function ModsScreen({titleId:initialId,onBack}) {
         <Button2 label={t('hints.back')} onPress={back}/>
       </View>
       <View style={{flex:1,flexDirection:'row',gap:40}}>
-        <View style={{width:560,gap:20}}>
+        <ScrollView style={{width:608,borderRadius:12,backgroundColor:'#05090ddd'}}>
+        <View style={{gap:20,paddingHorizontal:20,paddingTop:16,paddingBottom:24}}>
           {!titleId?<>
             <View style={{height:62,padding:14,borderRadius:10,backgroundColor:'#15202ce6'}}>
               <Text style={{...INK,numberOfLines:1}}>{query||t('mods.search')}</Text>
@@ -101,7 +102,7 @@ export function ModsScreen({titleId:initialId,onBack}) {
             </>:null}
           </>}
           {!titleId?<Text style={MUTED}>{t('mods.catalogHelp')}</Text>:null}
-        </View>
+        </View></ScrollView>
         <FocusScope focusKey="mods-results"><View style={{flex:1,gap:10}}>
           {record?<>
             <Text style={{...INK,fontSize:28,lineHeight:38}}>{t('mods.features')}</Text>

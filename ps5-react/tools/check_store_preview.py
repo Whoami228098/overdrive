@@ -45,12 +45,13 @@ def main():
          'count':1,'file':'hosts/ps5/titles/CUSA99999.json'}]}))
     command,build=desktop(stage)
     fixture=sandbox(stage)
-    for directory in ['data/homebrew','data/cheatrunner','user/appmeta/CUSA99999']:
+    for directory in ['data/homebrew/covers','data/cheatrunner','user/appmeta/CUSA99999']:
         (fixture/directory).mkdir(parents=True,exist_ok=True)
     (fixture/'data/homebrew/catalog-user.json').write_text(json.dumps({'games':[
         {'title':'Owned store fixture','platform':'ps4','title_id':'CUSA99999','version':'01.00',
          'source':'https://example.invalid/owned-fixture.pkg','size_gb':0.001,
-         'cover_url':'file:///app0/media/cover.png'}]}))
+         'cover_url':'file:///covers/fixture.png'}]}))
+    shutil.copyfile(media/'cover.png',fixture/'data/homebrew/covers/fixture.png')
     (fixture/'user/appmeta/CUSA99999/param.json').write_text(json.dumps({'titleId':'CUSA99999','contentVersion':'01.00'}))
     control=str(out/'control.sock')
     env={**preview_env(stage),'PS5_REACT_CONTROL':control,'SDL_AUDIODRIVER':'dummy'}
@@ -116,6 +117,7 @@ def main():
                 except subprocess.TimeoutExpired:process.kill();process.wait()
     output=(out/'native.log').read_text()
     if process.returncode or 'JS exception' in output or 'AddressSanitizer' in output:raise RuntimeError('Native preview failed; inspect native.log')
+    if 'Image.load ' in output or 'could not read local image' in output:raise RuntimeError('A local cover failed to load; inspect the screenshots and native.log')
     if output.count('music decoded id=')<2 or 'music ended id=' not in output:raise RuntimeError('Real MP3 stream did not finish and continue')
     result={'passed':True,'hardware_tested':False,'host':'Linux SDL/OpenGL/QuickJS',
             'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
