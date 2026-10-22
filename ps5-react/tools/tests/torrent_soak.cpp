@@ -8,12 +8,14 @@
 #include <libtorrent/bencode.hpp>
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/peer_class.hpp>
+#include <libtorrent/peer_info.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <openssl/sha.h>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
@@ -73,15 +75,28 @@ template<class F> auto api(F fn) {
   else { auto value = fn(); elapsed_call(from); return value; }
 }
 void wait_for(const std::function<bool()>& condition, const char* label, std::chrono::seconds timeout = 30s) {
+  const auto from = Clock::now();
   const auto deadline = Clock::now() + timeout;
+  auto diagnostic = from + 30s;
   while (Clock::now() < deadline) {
     beat();
     if (network_diagnostics) network_diagnostics(false);
-    if (condition()) return;
+    if (condition()) {
+      if (Clock::now() - from >= 30s)
+        std::cerr << "WAIT completed label=" << label << " seconds="
+          << std::chrono::duration<double>(Clock::now() - from).count() << '\n';
+      return;
+    }
+    if (Clock::now() >= diagnostic) {
+      std::cerr << "WAIT pending label=" << label << " seconds="
+        << std::chrono::duration<double>(Clock::now() - from).count() << '\n';
+      if (network_diagnostics) network_diagnostics(true);
+      diagnostic = Clock::now() + 30s;
+    }
     std::this_thread::sleep_for(20ms);
   }
   if (network_diagnostics) network_diagnostics(true);
-  throw std::runtime_error(std::string("Timeout: ") + label + "; last native error: " + torrent::last_error());
+  throw std::runtime_error(std::string("Timeout: ") + label + "; historical native error: " + torrent::last_error());
 }
 torrent::Status status(int id) {
   torrent::Status out[32];
@@ -236,6 +251,20 @@ int main(int argc, char** argv) {
       if (!dump) return;
       const auto current = seed_handle.status();
       std::cerr << "SEED state=" << current.state << " peers=" << current.num_peers << " error=" << current.errc.message() << '\n';
+      std::vector<lt::peer_info> peers;
+      seed_handle.get_peer_info(peers);
+      for (const auto& peer : peers)
+        std::cerr << "SEED peer=" << peer.ip << " flags=" << static_cast<std::uint32_t>(peer.flags)
+          << " uploaded=" << peer.total_upload << " downloaded=" << peer.total_download
+          << " pieces=" << peer.num_pieces << " requests=" << peer.download_queue_length
+          << " disk_read=" << peer.pending_disk_read_bytes << " disk_write=" << peer.pending_disk_bytes << '\n';
+      torrent::Status snapshots[32];
+      const int count = api([&] { return torrent::poll(snapshots, 32); });
+      for (int i = 0; i < count; ++i) {
+        const auto& item = snapshots[i];
+        std::cerr << "CLIENT id=" << item.id << " state=" << item.state << " done=" << item.done
+          << " total=" << item.total << " seeds=" << item.seeds << " peers=" << item.peers << '\n';
+      }
       for (const auto& line : seed_logs) std::cerr << "SEED " << line << '\n';
     };
     const auto magnet = lt::make_magnet_uri(*info) + "&x.pe=127.0.0.1:" + std::to_string(seeder.listen_port());
@@ -249,17 +278,21 @@ int main(int argc, char** argv) {
     wait_for([&] { return !torrent::files(id).empty(); }, "magnet metadata and path inspection");
     api([&] { torrent::pause(id); }); state(id, torrent::paused, "pause with flushed checkpoint");
     check(fs::exists(root / "downloads/torrents/.resume" / (key + ".resume")), "pause checkpoint absent");
-    api([&] { torrent::resume(id); }); state(id, torrent::completed, "download completion", 60s);
+    // A single peer may wait the normal 60-second reconnect backoff after the
+    // upload-only metadata gate or a pause. Keep the API/watchdog limits strict,
+    // but allow two retries and emit peer diagnostics while awaiting the network.
+    constexpr auto network_timeout = 180s;
+    api([&] { torrent::resume(id); }); state(id, torrent::completed, "download completion", network_timeout);
     check(torrent::finished(id), "finished flag absent");
     check(hash(read(fs::path(torrent::destination(id)) / "fixture.bin")) == hash(payload), "downloaded payload differs"); ++transfers;
     const fs::path destination = torrent::destination(id);
     remove(id, false); check(fs::exists(destination / "fixture.bin"), "keep-files removal deleted payload");
-    const int restored = add(magnet, root); state(restored, torrent::completed, "checkpoint restore", 60s);
+    const int restored = add(magnet, root); state(restored, torrent::completed, "checkpoint restore", network_timeout);
     check(restored != id && hash(read(destination / "fixture.bin")) == hash(payload), "restore lost task identity or data");
     remove(restored, true); check(!fs::exists(destination / "fixture.bin"), "delete-files removal left payload");
     check(!fs::exists(root / "downloads/torrents/.resume" / (key + ".resume")), "delete left checkpoint");
     const auto second_root = sandbox / "other-app";
-    const int other = add(magnet, second_root); state(other, torrent::completed, "second save root", 60s);
+    const int other = add(magnet, second_root); state(other, torrent::completed, "second save root", network_timeout);
     check(fs::path(torrent::destination(other)).string().rfind(second_root.string(), 0) == 0, "save roots mixed");
     check(hash(read(fs::path(torrent::destination(other)) / "fixture.bin")) == hash(payload), "second payload differs"); ++transfers;
     remove(other, true);
@@ -295,7 +328,7 @@ int main(int argc, char** argv) {
         api([&] { torrent::pause(item); }); state(item, torrent::paused, "soak pause");
         api([&] { torrent::resume(item); });
       }
-      state(item, torrent::completed, "soak transfer", 60s);
+      state(item, torrent::completed, "soak transfer", network_timeout);
       check(hash(read(fs::path(torrent::destination(item)) / "fixture.bin")) == hash(payload), "soak payload checksum differs");
       ++transfers; remove(item, true); ++cycles;
       const auto elapsed = Clock::now() - from;
