@@ -50,6 +50,18 @@ so a wrapper's address cannot hide a missing system import. A host regression
 test covers a non-null wrapper around a deliberately null real symbol. No
 imported function is called by the audit.
 
+The separate manual `torrent host soak` workflow runs the shared source from an
+explicit commit with the pinned libtorrent and Boost sources on Linux. Use zero
+minutes for a smoke run, then 90 for an uninterrupted timed test. It builds the
+engine and harness with AddressSanitizer/UndefinedBehaviorSanitizer and enables
+leak detection. Synthetic files transfer only through a loopback peer; DHT and
+LAN discovery are off. It checks metadata, pause/checkpoint/restore, payload
+checksums, duplicate/root handling, invalid resumes, filesystem failures, queue
+capacity, concurrent calls and shutdown/restart. The artifact records source
+hashes, elapsed monotonic time, memory/descriptors and API latency. System OpenSSL
+is a host dependency; this test does not execute the PS5 ELF or validate PS5
+imports, firmware or DHT.
+
 The worker owns the session/alerts and exposes bounded submission and snapshots.
 The host schedules it at startup before loading JS, without waiting for session
 initialization. JS add/control calls never start or join a worker. Each queued

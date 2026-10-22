@@ -12,6 +12,10 @@
   Reject those imports at build time and check every final native import address
   without calling it before starting the torrent worker on the console.
   For linker-wrapped calls, check the real provider rather than the wrapper.
+- Add an opt-in Linux loopback soak of the exact shared native source, with
+  AddressSanitizer/UndefinedBehaviorSanitizer, payload checksums, resume/error
+  cases, concurrent submission and timed lifecycle checks. It is host evidence,
+  not a PS5 hardware test.
 
 ## Unreleased — user game pages and torrent startup
 

@@ -1,0 +1,50 @@
+name: torrent host soak
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact native source commit to test
+        required: true
+        type: string
+      minutes:
+        description: Timed loopback soak after the regression cases (0 is smoke)
+        required: true
+        default: '90'
+        type: string
+permissions:
+  contents: read
+jobs:
+  native-host-soak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 160
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install host test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 llvm-18 cmake ninja-build build-essential libssl-dev nodejs
+      - name: Restore pinned dependency sources
+        uses: actions/cache/restore@v4
+        with:
+          path: ps5-react/.deps
+          key: deps-${{ hashFiles('ps5-react/dependencies.lock.json') }}
+      - name: Import and queue regressions
+        run: |
+          python3 ps5-react/tools/test_native_imports.py
+          node --test ps5-react/native/shared/tests/torrent-integration.test.mjs app/game/game-open.test.mjs app/state/game-detection.test.mjs
+      - name: Build and run sanitizer loopback soak
+        env:
+          SOAK_SOURCE_REF: ${{ inputs.source_ref }}
+          SOAK_MINUTES: ${{ inputs.minutes }}
+        run: python3 -u ps5-react/tools/torrent_soak.py --source-ref "$SOAK_SOURCE_REF" --minutes "$SOAK_MINUTES"
+      - name: Save host test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-host-soak
+          path: |
+            ps5-react/.build/torrent-soak/*.json
+            ps5-react/.build/torrent-soak/*.log
+          if-no-files-found: warn
