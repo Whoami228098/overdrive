@@ -78,6 +78,8 @@ target_link_libraries(ps5-react-video-test PRIVATE Threads::Threads)
 if(APPLE)
   target_link_libraries(ps5-react-video-test PRIVATE "-framework VideoToolbox" "-framework CoreFoundation" "-framework CoreMedia"
                         "-framework CoreVideo" "-framework CoreServices" "-framework Security")
+else()
+  target_link_libraries(ps5-react-video-test PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 endif()
 # tools/test_passthrough.py: the IEC 61937 packer against FFmpeg's spdif muxer, and the EDID audio parser.
 add_executable(ps5-react-passthrough-test EXCLUDE_FROM_ALL ../../tools/tests/passthrough_client.cpp ../shared/audio_sink.cpp)
