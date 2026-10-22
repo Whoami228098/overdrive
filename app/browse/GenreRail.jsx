@@ -4,7 +4,7 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { GenreCard } from './GenreCard.jsx';
-import { RowCard, useRowWindow } from './near.js';
+import { RowCard, useRowWindow, useSectionShown } from './near.js';
 import { games } from '../data/catalog.js';
 import { useT } from '../i18n/index.js';
 import { genres } from '../state/catalog.js';
@@ -25,6 +25,8 @@ import { FocusScope, ScrollView, View } from '@ps5-react/core';
     const [toggleGenre] = (0, useState)(() => (genre) => toggleFilter("genre", genre));
     // Three covers a card: the cards far from where focus rests let theirs go.
     const row = useRowWindow();
+    useSectionShown(RAIL.length > 0);
+    if (!RAIL.length) return null;
     return /* @__PURE__ */ (0, jsxs)(View, { scrollAnchor: true, children: [
       /* @__PURE__ */ (0, jsx)(SectionHeader, { title: t2("browse.popularGenres") }),
       /* @__PURE__ */ (0, jsxs)(View, { style: { position: "relative", marginHorizontal: -9, marginVertical: -30 }, children: [

@@ -8,6 +8,7 @@ import { prefetchWhenSettled } from '../game/art.js';
 import { latin, useLocale, useT } from '../i18n/index.js';
 import { NO_FILTERS, formatCount, formatDate3, sortGames, sortLabel } from '../state/catalog.js';
 import { shuffle } from './picks.js';
+import { useSectionShown } from './near.js';
 import { useNavActions } from '../state/nav.jsx';
 import { useShowLibrary } from '../ui/useSections.js';
 import { Cover } from '../ui/Cover.jsx';
@@ -31,7 +32,7 @@ import { Text, View } from '@ps5-react/core';
     const top = games.filter(has).sort(compare).slice(0, TOP);
     return shuffle(top).slice(0, 5).sort(compare);
   }
-  var CHARTS = ["relevance", "newest", "rating"].map((id) => ({ id, games: chartOf(id) }));
+  var CHARTS = ["relevance", "newest", "rating"].map((id) => ({ id, games: chartOf(id) })).filter((chart) => chart.games.length > 0);
   var DETAIL = {
     relevance: (t2, game) => t2("browse.reviews", { count: formatCount(game.recommendations) }),
     newest: (t2, game) => formatDate3(game.releaseDate)
@@ -61,6 +62,8 @@ import { Text, View } from '@ps5-react/core';
     useT();
     const { openGame } = useNavActions();
     const show = useShowLibrary();
+    useSectionShown(CHARTS.length > 0);
+    if (!CHARTS.length) return null;
     // "See all" opens the library on that sort, as the header's section of the same name does.
     const seeAll = (id) => show(NO_FILTERS, id, "catalog:sort", { rating: "top" }[id] ?? "catalog");
     return /* @__PURE__ */ (0, jsx)(View, { scrollAnchor: true, style: { marginBottom: -18, marginTop: -12, flexDirection: "row", gap: 48 }, children: CHARTS.map(

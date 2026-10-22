@@ -1,5 +1,17 @@
 # Changelog
 
+## Overdrive 1.0.10 — empty catalog startup and optional HDMI EDID
+
+- Hide popular, spotlight, genre and chart sections when their source lists are
+  empty. Do not create a first-card focus target or a modulo-zero slideshow timer.
+  Keep search history available without an empty popular-results heading.
+- Treat only the guarded HDMI EDID import as optional. Missing required imports
+  still refuse torrent startup; a missing EDID function returns unknown sink
+  capabilities instead of calling a null address.
+- Add empty, artless and populated user-catalog regressions, plus native tests
+  for optional versus required imports and the actual EDID call with a null or
+  valid provider. Raise the app and console package versions for console retests.
+
 ## Unreleased — torrent startup diagnostics
 
 - Add the build/runtime `TORRENT_MINIMAL=1` mode with DHT/LSD/bootstrap disabled,

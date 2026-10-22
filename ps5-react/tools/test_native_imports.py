@@ -82,6 +82,59 @@ int main() { return !ps5_react_audit_imports(log) && found && counted && called 
             '-o', str(executable)], check=True)
         subprocess.run([str(executable)], check=True, timeout=10)
 
+    def test_only_guarded_edid_import_is_optional(self):
+        for required_missing in (False, True):
+            audit = self.root / ('optional-' + str(required_missing) + '.cpp')
+            audit.write_text(audit_source([{'name': 'sceVideoOutGetHdmiRawEdid_', 'type': 2},
+                                           {'name': 'fixture_missing', 'type': 2}]))
+            driver = self.root / 'optional-driver.cpp'
+            driver.write_text('''#include <cstring>
+bool optional_found = false, required_found = false;
+extern "C" bool ps5_react_audit_imports(void (*)(const char*));
+void log(const char* text) {
+  if (std::strstr(text, "optional native import NULL symbol=sceVideoOutGetHdmiRawEdid_")) optional_found = true;
+  if (std::strstr(text, "native import NULL symbol=fixture_missing")) required_found = true;
+}
+''' + ('' if required_missing else 'extern "C" void fixture_missing() {}\n') + '''
+int main() { const bool passed = ps5_react_audit_imports(log);
+''' + '  constexpr bool required_missing = ' + ('true' if required_missing else 'false') + ''';
+  return optional_found && required_found == required_missing && passed == !required_missing ? 0 : 1; }
+''')
+            executable = self.root / ('optional-test-' + str(required_missing))
+            subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror', '-no-pie', '-fno-builtin',
+                str(audit), str(driver), '-Wl,--defsym=sceVideoOutGetHdmiRawEdid_=0',
+                *(['-Wl,--defsym=fixture_missing=0'] if required_missing else []), '-o', str(executable)], check=True)
+            subprocess.run([str(executable)], check=True, timeout=10)
+
+    def test_actual_edid_call_handles_missing_and_present_import(self):
+        from common import dependency
+        root = Path(__file__).resolve().parents[1]
+        quickjs = dependency('quickjsSource')
+        for missing in (True, False):
+            driver = self.root / 'edid-driver.cpp'
+            driver.write_text('''#include "audio_sink.hpp"
+''' + ('' if missing else '''
+extern "C" int sceVideoOutGetHdmiRawEdid_(void* out, unsigned long size) {
+  if (size != 513) return -1;
+  auto bytes = static_cast<unsigned char*>(out);
+  bytes[0] = 1; bytes[1] = 77;
+  return 0;
+}
+''') + '''
+int main() {
+  std::vector<std::uint8_t> bytes;
+  const bool found = host::sink_edid(bytes);
+''' + ('  return !found && bytes.empty() ? 0 : 1;\n' if missing else
+       '  return found && bytes.size() == 128 && bytes[0] == 77 ? 0 : 1;\n') + '}\n')
+            executable = self.root / ('edid-test-' + str(missing))
+            subprocess.run(['c++', '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror', '-no-pie',
+                '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections', '-pthread',
+                '-I' + str(root / 'native/shared'), '-I' + str(root / 'native/ps5'), '-I' + str(quickjs),
+                str(root / 'native/ps5/bitstream_output.cpp'), str(driver),
+                *(['-Wl,--defsym=sceVideoOutGetHdmiRawEdid_=0'] if missing else []),
+                '-o', str(executable)], check=True)
+            subprocess.run([str(executable)], check=True, timeout=10)
+
 
 if __name__ == '__main__':
     unittest.main()

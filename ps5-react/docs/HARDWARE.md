@@ -1,5 +1,21 @@
 # Hardware evidence
 
+## User-reported Overdrive Minimal startup — 2026-10-22
+
+Firmware 13.590.001, ShadowMount+ active, user-visible build identity
+`TRAPSTARMINIMAL`, session 09:55:56 in the user's local time. The user reported
+`native imports checked=453 unresolved=1`, identifying
+`sceVideoOutGetHdmiRawEdid_`; the audit refused torrent startup rather than
+calling a missing import. The application still closed after the independent
+JavaScript exception near bundle line 17582 while reading a missing game's id.
+The supplied trace and the app.log retrieved through the user-authorized FTP
+connection agree on both failures. The exact console image hash and loader
+version were not supplied, so this records the reported identity and partial
+behavior, not a complete hardware pass or verification of later builds.
+
+Overdrive 1.0.10 adds a guarded optional EDID import and empty-catalog startup
+checks. Those new artifacts require their own console evidence.
+
 ## User-confirmed baseline — 2026-10-05
 
 PS5 Slim Digital, firmware 13.60, kstuff and ShadowMount active, without etaHEN.

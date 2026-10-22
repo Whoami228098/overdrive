@@ -6,6 +6,10 @@ import json
 import re
 import struct
 
+# Optional only because host::sink_edid checks this address before calling it.
+# Keep all other imports required, including entropy and torrent dependencies.
+OPTIONAL_IMPORTS = frozenset({'sceVideoOutGetHdmiRawEdid_'})
+
 
 def symbols(path):
     data = Path(path).read_bytes()
@@ -45,7 +49,7 @@ def audit_source(entries, wrapped=()):
     """No imported function is called. Volatile reads keep null checks observable."""
     wrapped = set(wrapped)
     lines = ['using Address = void (*)();',
-             'struct Import { const char* name; Address volatile address; };']
+             'struct Import { const char* name; Address volatile address; bool optional; };']
     for i, symbol in enumerate(entries):
         name = symbol['name']
         if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.$@]*', name):
@@ -57,9 +61,10 @@ def audit_source(entries, wrapped=()):
         lines.append(f'extern "C" {declaration} asm({json.dumps(target)});')
     lines.append('static const Import imports[] = {')
     for i, symbol in enumerate(entries):
-        lines.append('  {' + json.dumps(symbol['name']) + f', reinterpret_cast<Address>(&import_{i})' + '},')
+        optional = 'true' if symbol['name'] in OPTIONAL_IMPORTS else 'false'
+        lines.append('  {' + json.dumps(symbol['name']) + f', reinterpret_cast<Address>(&import_{i}), {optional}' + '},')
     # The initial link uses a sentinel; it is replaced by the complete table before conversion.
-    lines += ['  {nullptr, nullptr}', '};',
+    lines += ['  {nullptr, nullptr, false}', '};',
               'static void append(char*& out, const char* end, const char* text) {',
               '  while (*text && out < end) *out++ = *text++;', '}',
               'static void number(char*& out, const char* end, unsigned value) {',
@@ -67,18 +72,20 @@ def audit_source(entries, wrapped=()):
               "  do { digits[count++] = char('0' + value % 10); value /= 10; } while (value);",
               '  while (count && out < end) *out++ = digits[--count];', '}',
               'extern "C" bool ps5_react_audit_imports(void (*log)(const char*)) {',
-              '  unsigned checked = 0, missing = 0; char line[256];',
+              '  unsigned checked = 0, missing = 0, optional_missing = 0; char line[256];',
               '  for (const auto& entry : imports) {',
               '    if (!entry.name) break;',
               '    ++checked;',
               '    if (entry.address != nullptr) continue;',
-              '    ++missing;',
+              '    if (entry.optional) ++optional_missing; else ++missing;',
               '    char* out = line; const char* end = line + sizeof line - 1;',
+              '    if (entry.optional) append(out, end, "optional ");',
               '    append(out, end, "native import NULL symbol="); append(out, end, entry.name); *out = 0;',
               '    log(line);', '  }',
               '  char* out = line; const char* end = line + sizeof line - 1;',
               '  append(out, end, "native imports checked="); number(out, end, checked);',
               '  append(out, end, " unresolved="); number(out, end, missing); *out = 0;',
+              '  append(out, end, " optional_unresolved="); number(out, end, optional_missing); *out = 0;',
               '  log(line);', '  return missing == 0;', '}', '']
     return '\n'.join(lines)
 

@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react';
     const current = (0, useRef)(active2);
     current.current = active2;
     (0, useEffect)(() => {
-      if (paused || !enabled) return void 0;
+      if (paused || !enabled || count <= 0) return void 0;
       startedAt.current = Date.now();
       running.current = true;
       const id = setTimeout(() => {
@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from 'react';
         ranFor.current = Date.now() - startedAt.current;
         clearTimeout(id);
       };
-    }, [active2, left, paused, enabled]);
+    }, [active2, left, paused, enabled, count]);
     (0, useEffect)(() => {
       if (!enabled && !held.current) setLeft((ms) => Math.max(0, ms - ranFor.current));
     }, [enabled]);

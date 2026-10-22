@@ -47,7 +47,7 @@ import { AnimatePresence, Image, Text, View, motion } from '@ps5-react/core';
       const id = setTimeout(() => setShown(game), 20);
       return () => clearTimeout(id);
     }, [game, shown]);
-    if (!shown.art.hero) return null;
+    if (!shown?.art.hero) return null;
     return /* @__PURE__ */ (0, jsx)(
       Image,
       {
@@ -116,18 +116,21 @@ import { AnimatePresence, Image, Text, View, motion } from '@ps5-react/core';
     );
   }
   function Spotlight() {
-    return /* @__PURE__ */ (0, jsx)(Carousel, { shown: useNavState().top.name === "browse" });
+    const shown = useNavState().top.name === "browse";
+    return featured.length ? /* @__PURE__ */ (0, jsx)(Carousel, { shown }) : null;
   }
   var Carousel = (0, memo)(function Carousel2({ shown }) {
     const t2 = useT();
     const { rtl } = useLocale();
-    const slides = useSlides(featured.length, shown);
+    const slides = useSlides(featured.length, shown && featured.length > 0);
     const { openGame } = useNavActions();
     const game = featured[slides.active];
     (0, useEffect)(() => {
+      if (!featured.length) return void 0;
       const id = setTimeout(prefetchSlides, 1500);
       return () => clearTimeout(id);
     }, []);
+    if (!game) return null;
     return /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", gap: 24 }, children: [
       /* @__PURE__ */ (0, jsxs)(View, { style: { position: "relative", width: 1410, height: 660, overflow: "hidden", borderRadius: 18, backgroundColor: "#212125" }, children: [
         /* @__PURE__ */ (0, jsx)(Art, { game }),

@@ -114,9 +114,15 @@ void close_bitstream() {
 }
 
 bool sink_edid(std::vector<std::uint8_t>& edid) {
+  // Some firmware exposes this SDK stub as a null import. Read the address
+  // through a volatile slot so the compiler cannot assume it is available.
+  using ReadEdid = int (*)(void*, unsigned long);
+  static ReadEdid volatile read_edid = &sceVideoOutGetHdmiRawEdid_;
+  const auto query = read_edid;
+  if (!query) return false;
   // A block count, then up to four 128-byte EDID blocks (firmware 13.60).
   std::uint8_t buffer[513] = {};
-  const int result = sceVideoOutGetHdmiRawEdid_(buffer, sizeof buffer);
+  const int result = query(buffer, sizeof buffer);
   if (result != 0 || buffer[0] == 0) return false;
   edid.assign(buffer + 1, buffer + 1 + std::min<std::size_t>(buffer[0], 4) * 128);
   return true;

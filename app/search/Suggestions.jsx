@@ -60,7 +60,7 @@ import { FocusScope, ScrollView, Text, View, useIsFocused } from '@ps5-react/cor
           )
         ) })
       ] }) : null,
-      /* @__PURE__ */ (0, jsx)(Title3, { children: t2("search.popular") }),
+      POPULAR2.length > 0 ? /* @__PURE__ */ (0, jsx)(Title3, { children: t2("search.popular") }) : null,
       /* @__PURE__ */ (0, jsx)(View, { style: { flexDirection: "row", flexWrap: "wrap", gap: 24, paddingBottom: 48 }, children: POPULAR2.map(
         (game, index) => /* @__PURE__ */ (0, jsx)(
           GameCard,

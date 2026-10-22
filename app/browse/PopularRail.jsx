@@ -12,7 +12,7 @@ import { useNavActions } from '../state/nav.jsx';
 import { useStoreActions } from '../state/store.jsx';
 import { GameCard } from '../ui/GameCard.jsx';
 import { ART_AHEAD, FIRST_ART } from './GameRail.jsx';
-import { RowCard, useRowWindow } from './near.js';
+import { RowCard, useRowWindow, useSectionShown } from './near.js';
 
   var WIDTH4 = 152;
   // "You might like" (was the most popular, which only Archive.org's few games could reach): 25
@@ -27,7 +27,7 @@ import { RowCard, useRowWindow } from './near.js';
     return shuffle([...famous, ...indie, ...others]);
   }
   var POPULAR = selectPicks();
-  var FIRST_POPULAR = `popular:${POPULAR[0].id}`;
+  var FIRST_POPULAR = POPULAR.length ? `popular:${POPULAR[0].id}` : void 0;
   var PopularRail = (0, memo)(function PopularRail2() {
     const t2 = useT();
     const { openGame, focusLater } = useNavActions();
@@ -36,6 +36,8 @@ import { RowCard, useRowWindow } from './near.js';
     const [reach, setReach] = (0, useState)(FIRST_ART);
     // And the ones far from where focus rests let theirs go.
     const row = useRowWindow();
+    useSectionShown(POPULAR.length > 0);
+    if (!POPULAR.length) return null;
     const seeAll = () => {
       setFilters(NO_FILTERS);
       setQuery("");

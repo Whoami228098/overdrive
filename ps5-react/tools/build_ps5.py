@@ -14,7 +14,7 @@ import subprocess
 import tarfile
 import urllib.request
 import zipfile
-from native_imports import imports as native_imports, audit_source, verify_providers
+from native_imports import imports as native_imports, audit_source, verify_providers, OPTIONAL_IMPORTS
 
 from rar_worker import build as build_rar_worker, unrar_source
 from common import layouts, layout_directory, resource_files, ROOT, DEPS, LOCK, run, digest, verify, fetch, app_files, bundle, dependency, stb_image, refresh_rate_mask
@@ -122,6 +122,7 @@ def main():
         test_react.symlink_to(er / "bridges/quickjs/js/node_modules/react", target_is_directory=True)
     run(["node", "--test", ROOT / "native/shared/tests/torrent-integration.test.mjs",
          ROOT.parent / "app/game/game-open.test.mjs",
+         ROOT.parent / "app/browse/empty-catalog.test.mjs",
          ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
     # Exercise every pure JavaScript runtime fixture, including the full native
     # task bridge and the reconciler-backed motion test, before native linking.
@@ -298,6 +299,7 @@ def main():
         raise RuntimeError('Native import audit did not stabilize after relinking')
     verify_providers(entries, [*sdk_stubs, *agc_stubs, *video_stubs])
     (BUILD / "native-imports.json").write_text(json.dumps({'imports': entries,
+        'optional_imports': [s['name'] for s in entries if s['name'] in OPTIONAL_IMPORTS],
         'wrapped_imports': [s['name'] for s in entries if s['name'] in wraps],
         'sdk_providers_verified': True, 'runtime_addresses_verified': False,
         'private_webkit_random_imports': False}, indent=2) + "\n")

@@ -53,6 +53,13 @@ so a wrapper's address cannot hide a missing system import. A host regression
 test covers a non-null wrapper around a deliberately null real symbol. No
 imported function is called by the audit.
 
+The sole optional import is `sceVideoOutGetHdmiRawEdid_`, used for HDMI sink
+capability discovery. Its caller reads a volatile address and returns false
+when missing. The audit logs `optional native import NULL symbol=...` and a
+separate `optional_unresolved` count; this does not increase required
+`unresolved`. Other imports, including the torrent and entropy backends, remain
+required. Tests link the actual EDID caller with both a null and a real provider.
+
 The separate manual `torrent host soak` workflow runs the shared source from an
 explicit commit with the pinned libtorrent and Boost sources on Linux. Use zero
 minutes for a smoke run, then 90 for an uninterrupted timed test. It builds the
