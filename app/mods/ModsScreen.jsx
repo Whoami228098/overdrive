@@ -12,8 +12,8 @@ const PAGE_SIZE=7;
 const INK={fontFamily:'Inter-Regular',fontSize:23,lineHeight:32,color:'#f0f4f8'};
 const MUTED={...INK,fontSize:20,lineHeight:27,color:'#a3b0bd'};
 
-function Row({title,detail,onPress,autoFocus}) {
-  return <View autoFocus={autoFocus} onPress={onPress} style={({focused})=>({height:88,
+function Row({title,detail,onPress,autoFocus,focusKey}) {
+  return <View focusKey={focusKey} autoFocus={autoFocus} onPress={onPress} style={({focused})=>({height:88,
     borderWidth:2,borderColor:focused?'#b8e5ff':'#ffffff18',backgroundColor:focused?'#23313e':'#0b1019e6',
     paddingHorizontal:22,paddingVertical:10,borderRadius:10,justifyContent:'center',gap:3})}>
     <Text style={{...INK,numberOfLines:1,ellipsizeMode:'tail'}}>{fitBytes(title)}</Text>
@@ -94,9 +94,9 @@ export function ModsScreen({titleId:initialId,onBack}) {
               <Text style={INK}>{record.version} · {record.format.toUpperCase()}</Text>
               <Text style={MUTED}>{t('mods.authors',{authors:record.authors.join(', ')||'Community'})}</Text>
               <Text style={MUTED}>{target?t('mods.loader',{loader:target.loader}):t('mods.loaderMissing')}</Text>
-              {target&&compatible&&!busy?<Button2 variant="primary" label={t('mods.install')} onPress={()=>action('install')}/>:null}
-              {!busy?<Button2 label={t('mods.export')} onPress={()=>action('export')}/>:null}
-              {!busy?<Button2 label={t('mods.restore')} onPress={()=>action('restore')}/>:null}
+              {target&&compatible&&!busy?<Button2 focusKey="mods-install" variant="primary" label={t('mods.install')} onPress={()=>action('install')}/>:null}
+              {!busy?<Button2 focusKey="mods-export" label={t('mods.export')} onPress={()=>action('export')}/>:null}
+              {!busy?<Button2 focusKey="mods-restore" label={t('mods.restore')} onPress={()=>action('restore')}/>:null}
               <Text style={MUTED}>{t('mods.activationHelp')}</Text>
             </>:null}
           </>}
@@ -111,11 +111,11 @@ export function ModsScreen({titleId:initialId,onBack}) {
             <Text style={MUTED}>{record.source?.repository??''}</Text>
           </>:<>
             <View key={`${titleId??'index'}:${page}`} style={{flex:1,gap:8}}>
-              {shown.map((item,index)=>titleId?<Row key={item.id} autoFocus={index===0}
+              {shown.map((item,index)=>titleId?<Row key={item.id} focusKey={`mods-pack:${item.id}`} autoFocus={index===0}
                 title={`${item.version} · ${item.format.toUpperCase()}`}
                 detail={`${item.features.length} ${t('mods.features')} · ${item.authors.join(', ')||'Community'}`}
                 onPress={()=>{setRecord(item);setNotice('');}}/>:
-                <Row key={item.titleId} autoFocus={index===0} title={item.title}
+                <Row key={item.titleId} focusKey={`mods-title:${item.titleId}`} autoFocus={index===0} title={item.title}
                   detail={`${item.titleId} · ${item.versions?.join(' / ')??''}`} onPress={()=>select(item.titleId)}/>)}
               {!shown.length?<Text style={INK}>{t('mods.empty')}</Text>:null}
             </View>

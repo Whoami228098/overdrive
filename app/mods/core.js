@@ -156,10 +156,10 @@ export function createModInstaller({fs, host, root, stateDir, identity, yieldFra
     if (!stat?.isFile || stat.size>MAX_FILE) throw new Error('Mod file is unavailable or too large');
     return digestBytes(fs.readBytes(path),yieldFrame);
   };
-  const receiptPath=record=>`${stateDir}/${record.id}.json`;
+  const receiptPath=(record,exportOnly=false)=>`${stateDir}/${record.id}${exportOnly?'.export':''}.json`;
   const save=(record,receipt)=>{
     fs.mkdir(stateDir,{recursive:true});
-    const path=receiptPath(record);
+    const path=receiptPath(record,receipt.exportOnly);
     fs.writeFile(`${path}.tmp`,JSON.stringify(receipt),{sync:true}); fs.rename(`${path}.tmp`,path);
   };
   return {
@@ -182,7 +182,7 @@ export function createModInstaller({fs, host, root, stateDir, identity, yieldFra
         const destination=`${directory}/${filename}`;
         const backup=`${stateDir}/${record.id}.backup`;
         let receipt;
-        try { receipt=readJson(fs,receiptPath(record)); } catch {}
+        try { receipt=readJson(fs,receiptPath(record,exportOnly)); } catch {}
         const current=fs.stat(destination);
         if (current && !current.isFile) throw new Error('Mod destination is not a regular file');
         if (current && await hashFile(destination)===record.sha256) return {state:'saved',loader:target?.loader,activation:target?.activation,destination};
@@ -202,6 +202,10 @@ export function createModInstaller({fs, host, root, stateDir, identity, yieldFra
         // Recheck after the asynchronous hashing/probe, before the atomic replacement.
         const before=fs.stat(destination);
         if (previous ? !before?.isFile || await hashFile(destination)!==previous : before) throw new Error('Mod destination changed during installation');
+        if (!exportOnly) {
+          const game=await identity(record.titleId);
+          if (game?.titleId!==record.titleId || !sameVersion(game.version,record.version)) throw new Error('The installed game version changed during installation');
+        }
         fs.copyFile(payload,destination);
         if (await hashFile(destination)!==record.sha256) throw new Error('Written mod checksum mismatch; backup retained');
         save(record,{...prepared,state:'saved'});
@@ -215,12 +219,21 @@ export function createModInstaller({fs, host, root, stateDir, identity, yieldFra
       if (!record) throw new Error('Invalid mod record');
       busy=true;
       try {
-        const receipt=readJson(fs,receiptPath(record));
+        let receipt;
+        try { receipt=readJson(fs,receiptPath(record)); }
+        catch { receipt=readJson(fs,receiptPath(record,true)); }
         const target=receipt.exportOnly ? {directory:`${stateDir}/exports/${record.titleId}`,filename:`${record.titleId}_${record.version}.${record.format}`} : loaderTarget(fs,host,record);
         if (!target || receipt.version!==1 || receipt.id!==record.id || receipt.host!==host ||
             receipt.sha256!==record.sha256 || receipt.destination!==`${target.directory}/${target.filename}` ||
             !['prepared','saved'].includes(receipt.state)) throw new Error('No matching restore receipt');
-        if (await hashFile(receipt.destination)!==record.sha256) throw new Error('This mod was changed outside the store; its file was kept');
+        const present=fs.stat(receipt.destination);
+        const current=present ? await hashFile(receipt.destination) : null;
+        // A power loss or failed probe can leave prepared intent before the atomic copy.
+        if (receipt.state==='prepared' && current===receipt.previous) {
+          save(record,{...receipt,state:'restored'});
+          return {state:'restored'};
+        }
+        if (current!==record.sha256) throw new Error('This mod was changed outside the store; its file was kept');
         if (receipt.previous) {
           if (!hashPattern.test(receipt.previous) || await hashFile(`${stateDir}/${record.id}.backup`)!==receipt.previous) throw new Error('Mod backup checksum mismatch');
           fs.copyFile(`${stateDir}/${record.id}.backup`,receipt.destination);

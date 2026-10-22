@@ -93,7 +93,7 @@ import { AnimatePresence, FocusScope, ScrollView, Text, View } from '@ps5-react/
       /* @__PURE__ */ (0, jsxs)(ScrollView, { style: { flex: 1 }, children: [
         /* @__PURE__ */ (0, jsx)(GameHero, { onRequestDialog: setDialog, game, download, onBack, onDownloaded: () => setToast("complete") }),
         /* @__PURE__ */ (0, jsxs)(View, { style: { paddingHorizontal: 48, paddingTop: 60, paddingBottom: 96 }, children: [
-          (0, jsx)(Button2, {label:t2("mods.title"),style:{alignSelf:"flex-start",marginBottom:32},onPress:()=>push({name:"mods",id:game.id},`download:${game.id}`)}),
+          (0, jsx)(Button2, {focusKey:`mods:${game.id}`,label:t2("mods.title"),style:{alignSelf:"flex-start",marginBottom:32},onPress:()=>push({name:"mods",id:game.id},`download:${game.id}`)}),
           /* @__PURE__ */ (0, jsxs)(View, { style: { flexDirection: "row", gap: 84 }, children: [
             /* @__PURE__ */ (0, jsxs)(View, { style: { width: 1308, gap: 84 }, children: [
               game.shots.length > 0 ? /* @__PURE__ */ (0, jsx)(MediaGallery, { shots: game.shots, nextDown: about.length > 0 ? "game:about" : void 0, onOpen: setViewing }) : null,

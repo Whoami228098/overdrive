@@ -111,6 +111,27 @@ test('export works without a loader or installed game, stays app-owned and is re
   assert.ok(result.destination.startsWith('/state/exports/'));assert.deepEqual(f.files.get(result.destination),bytes);
   await f.installer.restore(record);assert.equal(f.fs.stat(result.destination),null);
 });
+test('saving a pack first does not block later installation into a configured loader',async()=>{
+  const f=fixture();
+  const exported=await f.installer.install(record,{exportOnly:true});
+  const installed=await f.installer.install(record);
+  assert.notEqual(installed.destination,exported.destination);
+  await f.installer.restore(record);
+  assert.equal(f.fs.stat(installed.destination),null);
+  assert.deepEqual(f.files.get(exported.destination),bytes);
+});
+test('interrupted prepared intent can be cleared without changing the previous file',async()=>{
+  const f=fixture();
+  f.setInstalled({titleId:record.titleId,version:record.version});
+  const old=Uint8Array.from([1,2,3]),target='/data/cheatrunner/cheats/json/PPSA01234_01.002.000.json';
+  f.files.set(target,old);
+  const copy=f.fs.copyFile;
+  f.fs.copyFile=(from,to)=>{if(to===target)throw Error('simulated interruption');copy(from,to);};
+  await assert.rejects(()=>f.installer.install(record),/interruption/);
+  await f.installer.restore(record);assert.deepEqual(f.files.get(target),old);
+  f.fs.copyFile=copy;
+  await f.installer.install(record);assert.deepEqual(f.files.get(target),bytes);
+});
 test('loader routes keep PS5-native patches separate and never use PS4-host cheats on PS5',()=>{
   const f=fixture();
   assert.equal(loaderTarget(f.fs,'ps5',{...record,format:'xml'}).directory,'/data/cheatrunner/patches/xml_prospero');

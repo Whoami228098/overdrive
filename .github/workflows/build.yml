@@ -31,13 +31,17 @@ on:
         description: Run only the bounded local MP3 worker checks
         type: boolean
         default: false
+      preview_only:
+        description: Check the actual store in an isolated native desktop preview
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
   ps5:
-    if: ${{ inputs.host_soak_minutes == '' && !inputs.quality_only && !inputs.music_only }}
+    if: ${{ inputs.host_soak_minutes == '' && !inputs.quality_only && !inputs.music_only && !inputs.preview_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -53,7 +57,7 @@ jobs:
             fi
           done
           packages=(clang-18 llvm-18 llvm-18-dev cmake ninja-build nodejs npm python3-venv
-            zlib1g-dev build-essential pkg-config unzip zip curl zstd exfatprogs exfat-fuse)
+            zlib1g-dev build-essential pkg-config unzip zip curl zstd exfatprogs exfat-fuse ffmpeg)
           missing=()
           for package in "${packages[@]}"; do
             if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -qx 'install ok installed'; then missing+=("$package"); fi
@@ -111,7 +115,7 @@ jobs:
             llvm-readelf-18 --dyn-syms --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.dyn-syms.txt
             llvm-readelf-18 --relocations --wide "$build/llvm-pie.elf" > native-diagnostics/llvm-pie.relocations.txt
           fi
-          for file in eboot.elf llvm-pie.map native-imports.json native-import-audit.cpp link.log torrent-queue-tests.log native-network-tests.log native-import-tests.log js-heap-tests.log search-tests.log; do
+          for file in eboot.elf llvm-pie.map native-imports.json native-import-audit.cpp link.log torrent-queue-tests.log native-network-tests.log native-import-tests.log js-heap-tests.log music-tests.log search-tests.log; do
             if [ -f "$build/$file" ]; then cp "$build/$file" native-diagnostics/; fi
           done
 
@@ -179,10 +183,11 @@ jobs:
       minutes: ${{ inputs.host_soak_minutes }}
 
   quality:
-    if: ${{ inputs.quality_only && !inputs.music_only }}
+    if: ${{ (inputs.quality_only || inputs.preview_only) && !inputs.music_only }}
     uses: ./.github/workflows/quality.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}
+      preview_only: ${{ inputs.preview_only }}
 
   music-quality:
     if: ${{ inputs.music_only }}
@@ -191,7 +196,7 @@ jobs:
       source_ref: ${{ inputs.source_ref || github.sha }}
 
   ps4:
-    if: ${{ !inputs.diagnostic_only && inputs.host_soak_minutes == '' && !inputs.quality_only && !inputs.music_only }}
+    if: ${{ !inputs.diagnostic_only && inputs.host_soak_minutes == '' && !inputs.quality_only && !inputs.music_only && !inputs.preview_only }}
     needs: ps5
     runs-on: ubuntu-24.04
     timeout-minutes: 60

@@ -5,6 +5,9 @@ on:
       source_ref:
         required: true
         type: string
+      preview_only:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -58,6 +61,7 @@ jobs:
           node --version >> quality-evidence/host.txt
           python3 --version >> quality-evidence/host.txt
       - name: Run complete native framework test suite
+        if: ${{ !inputs.preview_only }}
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           SDL_AUDIODRIVER: dummy
@@ -70,6 +74,12 @@ jobs:
           exit "$status"
       - name: Check music and compatible mod workflows
         run: node --test app/music/controller.test.mjs app/mods/core.test.mjs | tee quality-evidence/music-mods-tests.log
+      - name: Render the real store with owned audio and mod fixtures
+        if: ${{ inputs.preview_only }}
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          SDL_AUDIODRIVER: dummy
+        run: xvfb-run -a -s '-screen 0 1920x1080x24' python3 -u ps5-react/tools/check_store_preview.py
       - name: Save framework evidence
         if: always()
         uses: actions/upload-artifact@v4
