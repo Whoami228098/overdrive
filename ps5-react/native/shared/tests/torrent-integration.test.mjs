@@ -69,11 +69,13 @@ function fixture() {
   const torrents = {available:true, enqueue(value) { options.push(value); const t=task(); tasks.push(t); return t; }};
   const downloads = {enqueue(value) { options.push(value); const t=task(); httpTasks.push(t); return t; }};
   const src = source();
+  const passwords = evaluate(planned + 'app/state/archive-password.js', ['archivePassword', 'refreshArchiveMetadata']);
+  const archives = evaluate(planned + 'app/state/torrent-archives.js', ['chooseTorrentArchive']);
   const formats = evaluate(repo + 'ps5-react/runtime/js/download-formats.js', ['DownloadFormats']).DownloadFormats;
   const context = {
-    ...src, Torrent:torrents, t: key => key, readJSON: () => null,
+    ...src, ...passwords, ...archives, Torrent:torrents, t: key => key, readJSON: () => null,
     INCOMPLETE_PART:/part (\d+)/, STALE_PARTIAL:/stale/, cause:value=>value,
-    archivePassword:()=>undefined, mountedImages:()=>[], within2:()=>false,
+    mountedImages:()=>[], within2:()=>false,
     MARGIN2:16*1024**2, stillNeeded: job=>Math.max(0,(job.total ?? job.release?.sizeBytes ?? 0)-(job.written||0)),
     spaceShortfall:()=>'', deletesPackages:()=>false, formatBytes:String,
     LINK_PREFIX:'',VIKING_PAGE_PREFIX:'',VIKING_PREFIX:''

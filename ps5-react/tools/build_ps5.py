@@ -124,7 +124,10 @@ def main():
          ROOT.parent / "app/game/game-open.test.mjs",
          ROOT.parent / "app/browse/empty-catalog.test.mjs",
          ROOT.parent / "app/data/user-catalog.test.mjs",
-         ROOT.parent / "app/state/game-detection.test.mjs"], log=BUILD / "torrent-queue-tests.log")
+         ROOT.parent / "app/state/game-detection.test.mjs",
+         ROOT.parent / "app/state/archive-password.test.mjs",
+         ROOT.parent / "app/state/torrent-archives.test.mjs",
+         ROOT.parent / "app/state/extraction-recovery.test.mjs"], log=BUILD / "torrent-queue-tests.log")
     run(["node", "--test", ROOT.parent / "app/search/search.test.mjs"], log=BUILD / "search-tests.log")
     # Exercise every pure JavaScript runtime fixture, including the full native
     # task bridge and the reconciler-backed motion test, before native linking.
