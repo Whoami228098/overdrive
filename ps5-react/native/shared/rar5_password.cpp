@@ -1,6 +1,7 @@
 // Copyright (C) 2026 half144 and PS5 React contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
+#if !defined(PS4) || defined(OVERDRIVE_RESIDENT) // The PS4 resident owns background archive work.
 // RAR5 framing/crypto follows https://www.rarlab.com/technote.htm; no UnRAR code is used.
 #include "rar5_password.hpp"
 #include <algorithm>
@@ -705,3 +706,5 @@ bool Rar5PasswordReader::verify(const std::string &name, std::uint32_t crc) cons
   return found == state->checksums.end() || found->second == crc;
 }
 } // namespace archives
+
+#endif // !PS4

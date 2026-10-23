@@ -1,6 +1,7 @@
 // Copyright (C) 2026 half144 and PS5 React contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
+#if !defined(PS4) || defined(OVERDRIVE_RESIDENT) // The PS4 resident owns background archive work.
 #include "archive_writer.hpp"
 #include "archives.hpp"
 #include "digest.hpp"
@@ -280,8 +281,6 @@ void Writer::sync_loop(Receipt::Lines* lines, std::mutex& reading, std::atomic<s
     ++timings_.syncs;
     if (!synced) fail(std::strerror(error));
     else if (progress) {
-      // Increment and deliver as one ordered operation. Otherwise a preempted
-      // callback for N can overwrite the final N+1 snapshot after all joins.
       std::lock_guard lock(reading);
       progress(++synced_files, total);
     }
@@ -319,3 +318,5 @@ std::string Writer::finish(const Progress& progress) {
   return {};
 }
 }
+
+#endif // !PS4

@@ -1,10 +1,10 @@
 // Copyright (C) 2026 half144 and PS5 React contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Additional attribution term: see LICENSE-ATTRIBUTION.
+#if !defined(PS4) || defined(OVERDRIVE_RESIDENT) // The PS4 resident owns background archive work.
 #include "archives.hpp"
 #include "archive_writer.hpp"
 #include "worker_thread.hpp"
-#include "../rar_worker/durable.hpp"
 #include <clocale>
 #include <mutex>
 #include "archive_preflight.hpp"
@@ -49,7 +49,6 @@ struct Job {
   Request request;
   Snapshot snapshot;
   std::atomic<bool> cancelled{false};
-  std::atomic<bool> detached{false};
   std::mutex mutex;
   Timings timings;
   WorkerThread worker;
@@ -372,8 +371,8 @@ bool plain_path(const std::string& root, const std::string& path) {
   }
   return true;
 }
-bool recover(Job& job, const std::string& identity, const std::string& staging = {}) {
-  const auto root = staging.empty() ? job.request.destination : staging;
+bool recover(Job& job, const std::string& identity) {
+  const auto root = job.request.destination;
   struct stat st;
   const auto receipt = root + "/" + receipt_name;
   if (lstat(receipt.c_str(), &st) || !S_ISREG(st.st_mode)) return false;
@@ -653,18 +652,10 @@ std::string rar_request(const Request& request, const std::string& staging) {
 // and the console froze. This stays under that with room for what the app and the worker hold besides,
 // and admits the 256 MiB LZMA2 dictionary repacks use.
 constexpr std::uint64_t seven_zip_worker_memory = 288ULL * 1024 * 1024;
-std::string seven_zip_request(const Request& request, const std::string& staging, std::uint64_t memory, bool general = false,
-                              std::uint64_t declared = 0) {
-  std::string text = std::string(general ? "ARX1" : "7ZX1") + "\nmemory " + std::to_string(memory) + "\nlimit " + std::to_string(request.max_bytes) + "\n";
+std::string seven_zip_request(const Request& request, const std::string& staging, std::uint64_t memory) {
+  std::string text = "7ZX1\nmemory " + std::to_string(memory) + "\nlimit " + std::to_string(request.max_bytes) + "\n";
   for (auto extension : image_extensions) text += "flatten " + std::string(extension) + "\n";
   text += "reserved .ps5-react-\ndest " + staging + "\n";
-  if (declared) text += "declared " + std::to_string(declared) + "\n";
-  if (!request.password.empty()) {
-    text += "password ";
-    constexpr char digits[] = "0123456789abcdef";
-    for (unsigned char c : request.password) { text += digits[c >> 4]; text += digits[c & 15]; }
-    text += "\n";
-  }
   for (const auto& path : request.sources) text += "source " + path + "\n";
   return text + "end\n";
 }
@@ -689,171 +680,10 @@ std::string rar_file(Job& job, const std::string& staging, const std::string& re
   if (++job.snapshot.entries > max_entries) return "Archive has too many entries.";
   return {};
 }
-// Follow reports retained by an independent payload. Reopening the application
-// reads the same journal, including completed file hashes; it never clears or
-// launches another decoder into that staging directory.
-bool extract_durable_worker(Job& job, const std::string& staging, Receipt& receipt, std::string& error,
-                            std::string request, const std::string& kind) {
-  const auto identity = job.request.stream ? stream_identity(job.request) : input_identity(job.request);
-  const auto journal_path = staging + "/" + durable_archive::journal_name;
-  bool resumed = false;
-  integrity::Hash generation_hash;
-  const auto seed = identity + ":" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-  generation_hash.update(seed.data(), seed.size());
-  auto generation = generation_hash.finish();
-  struct stat st{};
-  if (!lstat(journal_path.c_str(), &st)) {
-    if (!S_ISREG(st.st_mode)) { error = "Invalid persistent extraction journal; files preserved."; return true; }
-    resumed = true;
-  } else if (errno != ENOENT || !write_metadata(staging, durable_archive::journal_name,
-                                             durable_archive::header(identity, job.request.max_bytes, generation))) {
-    error = "Cannot create persistent extraction journal.";
-    return true;
-  }
-  const int fd = open(journal_path.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  if (fd < 0 || fstat(fd, &st) || !S_ISREG(st.st_mode)) {
-    if (fd >= 0) close(fd);
-    error = "Cannot read persistent extraction journal; files preserved.";
-    job.worker_unconfirmed = true;
-    return true;
-  }
-  struct Closer { int fd; ~Closer() { close(fd); } } closer{fd};
-  LineReader reports(fd);
-  std::string line;
-  auto prefix = "P5WK002:" + identity + ":";
-  const auto streamed_prefix = "P5WK002:" + stream_identity(job.request) + ":";
-  const bool has_header = reports.next(line);
-  // A RAR task may have started before its last download volume existed. Once
-  // all volumes arrive, a new UI submits the full request; it still follows the
-  // existing worker bound to these exact volume paths.
-  if (has_header && resumed && line.starts_with(streamed_prefix)) prefix = streamed_prefix;
-  if (!has_header || !line.starts_with(prefix)) {
-    error = "Persistent extraction belongs to different inputs; files preserved.";
-    job.worker_unconfirmed = true;
-    return true;
-  }
-  char* end = nullptr;
-  const auto tail = line.substr(prefix.size());
-  const auto split = tail.find(':');
-  const auto text = tail.substr(0,split);
-  generation = split == std::string::npos ? "" : tail.substr(split+1);
-  const auto saved_limit = std::strtoull(text.c_str(), &end, 10);
-  if (text.empty() || *end || !saved_limit || saved_limit > (1ULL << 40) || !durable_archive::token(generation)) {
-    error = "Invalid persistent extraction byte limit; files preserved.";
-    job.worker_unconfirmed = true;
-    return true;
-  }
-  // Free disk space has fallen while this worker wrote its files. Reattaching
-  // retains its original bound instead of treating remaining space as total size.
-  job.request.max_bytes = saved_limit;
-  int stream = -1;
-  if (!resumed) {
-    const auto ending = request.rfind("end\n");
-    if (ending == std::string::npos) { error = "Invalid worker request."; return true; }
-    request.insert(ending, "journal " + identity + " " + generation + "\n");
-    stream = start_rar_worker(request, error);
-    if (stream < 0) {
-      error = "Cannot start persistent " + kind + " extractor: " + error + ". Downloaded archives and staging were preserved.";
-      job.worker_unconfirmed = true;
-      return true;
-    }
-  }
-  trace(resumed ? "worker reattached" : "worker persistent started", staging.c_str());
-  std::uint64_t total = 0;
-  bool finished = false, succeeded = false, cancel_sent = false;
-  unsigned silent = 0;
-  std::array<char, 4096> output{};
-  std::string direct;
-  while (!finished && !job.detached) {
-    if ((job.cancelled || !error.empty()) && !cancel_sent) {
-      // The cancel marker works when this UI did not start the surviving worker.
-      const auto marker = staging + "/" + durable_archive::cancel_name;
-      if (!regular_file(marker) && !write_metadata(staging, durable_archive::cancel_name, "cancel\n")) {
-        if (error.empty()) error = "Cannot request worker cancellation; files preserved.";
-        break;
-      }
-      if (stream >= 0) cancel_rar_worker(stream);
-      cancel_sent = true;
-      silent = 0;
-    }
-    bool received = false;
-    while (reports.next(line)) {
-      received = true;
-      if (line.starts_with("p ") && !cancel_sent) {
-        const auto written = std::strtoull(line.c_str() + 2, nullptr, 10);
-        std::lock_guard lock(job.mutex);
-        job.snapshot.written = std::min<std::uint64_t>(written, job.request.max_bytes);
-      } else if (line.starts_with("f ") && error.empty()) {
-        error = rar_file(job, staging, line.substr(2), total, receipt);
-        if (error.empty() && resumed) {
-          const auto split = line.find(' ', 2 + 64 + 1);
-          std::string actual;
-          enter(job, "verifying");
-          trace("worker verifying recovered file", line.substr(split + 1).c_str());
-          if (split == std::string::npos || !file_hash(staging + "/" + line.substr(split + 1), job, actual) || actual != line.substr(2, 64))
-            error = "Recovered extraction SHA-256 mismatch; downloaded archive preserved.";
-          enter(job, "extracting");
-        }
-      } else if (line.starts_with("d ")) {
-        const auto declared = std::strtoull(line.c_str() + 2, nullptr, 10);
-        std::lock_guard lock(job.mutex);
-        job.snapshot.total = std::min<std::uint64_t>(declared, job.request.max_bytes);
-      } else if (line == "s" && !cancel_sent) {
-        enter(job, "finishing");
-      } else if (line == "ok" || line == "cancelled" || line.starts_with("fail ")) {
-        finished = true;
-        succeeded = line == "ok";
-        if (line.starts_with("fail ") && error.empty()) error = line.substr(5);
-        if (line == "cancelled" && !job.cancelled && error.empty()) error = "The extraction worker was cancelled; downloaded archives were preserved.";
-        break;
-      }
-    }
-    if (job.detached || finished) break;
-    // Drain the original socket so its bounded buffer never blocks the worker.
-    // A launch refusal before the worker claims its journal appears here only.
-    if (stream >= 0) {
-      const auto count = read_rar_worker(stream, output.data(), output.size());
-      if (count > 0) {
-        direct.append(output.data(), static_cast<std::size_t>(count));
-        for (std::size_t at; (at = direct.find('\n')) != std::string::npos; direct.erase(0, at + 1)) {
-          if (direct.starts_with("fail ") && !received && silent < 4) {
-            error = direct.substr(5, at - 5);
-            break;
-          }
-        }
-        if (direct.size() > 8192) direct.clear();
-      } else if (!count) {
-        close_rar_worker(stream, true);
-        stream = -1;
-      }
-    } else {
-      usleep(250'000);
-    }
-    silent = received ? 0 : silent + 1;
-    if (silent > (cancel_sent ? rar_cancel_reads : rar_silent_reads)) {
-      if (error.empty()) error = "The extraction worker stopped reporting. Partial files and downloaded archives were preserved; no second decoder was started.";
-      break;
-    }
-  }
-  if (stream >= 0) close_rar_worker(stream, true);
-  job.worker_unconfirmed = !finished;
-  if (job.detached) {
-    trace("worker detached; extraction continues", staging.c_str());
-    return true;
-  }
-  if (error.empty() && !job.cancelled && !succeeded) error = "Persistent " + kind + " extraction did not complete; files preserved.";
-  if (error.empty() && !job.cancelled) {
-    std::lock_guard lock(job.mutex);
-    job.snapshot.written = total;
-  }
-  trace("worker persistent finished", error.c_str());
-  return true;
-}
 // Runs rar-extract on `request` (a RAR set's or a 7z's, `kind` naming which in traces and errors). False
 // when the worker could not be started, before anything was written.
 bool extract_worker(Job& job, const std::string& staging, Receipt& receipt, std::string& error, const std::string& request,
                     const std::string& kind) {
-  if (durable_workers()) return extract_durable_worker(job, staging, receipt, error, request, kind);
   const std::string name = (kind == "RAR" ? std::string("rar") : kind) + " worker";
   std::string unavailable;
   const int stream = start_rar_worker(request, unavailable);
@@ -944,51 +774,6 @@ bool extract_rar(Job& job, const std::string& staging, Receipt& receipt, std::st
 std::string staging_path(const std::string& destination, unsigned attempt) {
   return destination + ".extracting" + (attempt ? "-" + std::to_string(attempt) : "");
 }
-// A dead payload cannot resume a compression dictionary. Keep its partial data
-// under a generation-specific name before a later retry decodes from the saved
-// archive. A live worker's kernel lock always prevents this transition.
-bool park_interrupted_worker(const std::string& staging, std::string& error) {
-  const auto path = staging + "/" + durable_archive::journal_name;
-  const int fd = open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-  if (fd < 0) return false;
-  struct Closer { int fd; ~Closer() { close(fd); } } closer{fd};
-  struct stat st{};
-  if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size < 1 ||
-      static_cast<std::uint64_t>(st.st_size) > durable_archive::max_journal_bytes) return false;
-  const auto now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-  if (now - st.st_mtime < 30) return false;
-  LineReader lines(fd);
-  std::string first;
-  if (!lines.next(first) || !first.starts_with("P5WK002:")) return false;
-  const auto generation_at = first.rfind(':');
-  const auto generation = first.substr(generation_at + 1);
-  if (!durable_archive::token(generation)) return false;
-  char tail[8192]{};
-  const auto from = std::max<off_t>(0, st.st_size - static_cast<off_t>(sizeof tail));
-  const auto count = pread(fd, tail, sizeof tail, from);
-  if (count <= 0) return false;
-  std::string last(tail, static_cast<std::size_t>(count));
-  if (last.back() == '\n') {
-    last.pop_back();
-    const auto line = last.rfind('\n');
-    if (line != std::string::npos) last.erase(0,line+1);
-    if (last == "ok" || last == "cancelled" || last.starts_with("fail ")) return false;
-  }
-  durable_archive::Lease stopped;
-  if (!stopped.acquire(staging + "/" + durable_archive::worker_lock_name)) return false;
-  struct stat latest{};
-  if (fstat(fd, &latest) || latest.st_size != st.st_size || now - latest.st_mtime < 30) return false;
-  // Every new attempt gets a nonce in its request and header: a delayed old
-  // payload cannot claim the newly created directory after this rename.
-  const auto preserved = staging + ".interrupted-" + generation.substr(0,16);
-  struct stat existing{};
-  if (!lstat(preserved.c_str(), &existing) || errno != ENOENT || rename(staging.c_str(), preserved.c_str())) {
-    error = "Cannot preserve interrupted extraction before retrying. Downloaded archive and partial files were kept.";
-    return false;
-  }
-  trace("restarting interrupted extraction; partial preserved", preserved.c_str());
-  return true;
-}
 // Staging a silent worker left in an earlier launch, with this extraction's ownership record or none. The
 // first staging is restarted as usual unless the set is extracted already.
 void remove_leftover_staging(const Request& request, const std::string& identity) {
@@ -1015,11 +800,6 @@ void run(const std::shared_ptr<Job>& pointer) {
   name_thread("archive");
   Job& job = *pointer;
   const auto& request = job.request;
-  durable_archive::Lease controller;
-  if (durable_workers() && !controller.acquire(request.destination + ".ps5-react-controller-lock")) {
-    fail(job, "Another application controls this extraction, or its ownership lock is unavailable. Files preserved.");
-    return;
-  }
   unsigned attempt = 0;
   {
     std::lock_guard lock(silent_guard);
@@ -1032,7 +812,7 @@ void run(const std::shared_ptr<Job>& pointer) {
     fail(job, "Archive source is missing or not a regular file.");
     return;
   }
-  if (!attempt && !durable_workers()) remove_leftover_staging(request, identity);
+  if (!attempt) remove_leftover_staging(request, identity);
   if (!lstat(request.destination.c_str(), &st)) {
     if (S_ISDIR(st.st_mode) && recover(job, identity)) {
       std::lock_guard lock(job.mutex);
@@ -1051,14 +831,13 @@ void run(const std::shared_ptr<Job>& pointer) {
         std::none_of(request.sources.begin(), request.sources.end(), [](const std::string& path) { return path.find('\n') != std::string::npos; });
     return found.kind != "rar" || !lines ? std::string("Only a RAR set can be extracted while it downloads.") : found.refusal;
   };
-  std::uint64_t seven_zip_memory = 0, seven_zip_output = 0;
-  const auto refusal = request.stream ? streamed() : preflight(request.sources, seven_zip_memory, seven_zip_output);
+  std::uint64_t seven_zip_memory = 0;
+  const auto refusal = request.stream ? streamed() : preflight(request.sources, seven_zip_memory);
   // A 7z refused for the heap's memory alone, within rar-extract's budget, goes to the worker; its paths go
   // to the worker's line protocol. Without a worker the refusal stands.
   const bool lines = request.destination.find('\n') == std::string::npos &&
       std::none_of(request.sources.begin(), request.sources.end(), [](const std::string& path) { return path.find('\n') != std::string::npos; });
-  const bool seven_zip_worker = seven_zip_memory && seven_zip_memory <= seven_zip_worker_memory && lines &&
-      (!refusal.empty() || durable_workers());
+  const bool seven_zip_worker = !refusal.empty() && seven_zip_memory && seven_zip_memory <= seven_zip_worker_memory && lines;
   if (!refusal.empty() && !seven_zip_worker) {
     trace("preflight refused", refusal.c_str());
     fail(job, refusal);
@@ -1066,7 +845,6 @@ void run(const std::shared_ptr<Job>& pointer) {
   }
   if (seven_zip_worker) trace("preflight 7z for the worker, MiB", std::to_string(seven_zip_memory >> 20).c_str());
   else trace("preflight ok");
-  bool reattached = false, parked = false;
   if (!lstat(staging.c_str(), &st)) {
     std::string owner;
     // Empty staging with no ownership record is this task's own, left by a crash before it wrote one;
@@ -1079,30 +857,12 @@ void run(const std::shared_ptr<Job>& pointer) {
       fail(job, "Staging belongs to another extraction; files preserved.");
       return;
     }
-    if (durable_workers() && own) {
-      // A final receipt may have been synced just before the UI closed, while
-      // the staging directory itself was not published yet.
-      if (regular_file(staging + "/" + receipt_name) && recover(job, identity, staging)) {
-        if (rename(staging.c_str(), request.destination.c_str())) fail(job, "Cannot publish recovered extraction; files preserved.");
-        else { std::lock_guard lock(job.mutex); job.snapshot.state = "completed"; }
-        return;
-      }
-      reattached = regular_file(staging + "/" + durable_archive::journal_name);
-      if (!reattached) {
-        fail(job, "An interrupted extraction from an older worker was preserved. Its worker must be confirmed stopped before retrying; the downloaded archive is intact.");
-        return;
-      }
-      std::string error;
-      parked = park_interrupted_worker(staging, error);
-      if (!error.empty()) { fail(job,error); return; }
-      reattached = !parked;
-    }
-    if (!reattached && !parked && !restart_staging(staging, st)) {
+    if (!restart_staging(staging, st)) {
       fail(job, "Cannot restart owned extraction staging.");
       return;
     }
   }
-  if (!reattached && !make_directory(staging)) {
+  if (!make_directory(staging)) {
     fail(job, std::strerror(errno));
     return;
   }
@@ -1118,16 +878,12 @@ void run(const std::shared_ptr<Job>& pointer) {
     rmdir(staging.c_str());
     return;
   }
-  if ((!reattached && !write_metadata(staging, stage_name, "P5ST001:" + identity + "\n")) || fsync(root)) {
+  if (!write_metadata(staging, stage_name, "P5ST001:" + identity + "\n") || fsync(root)) {
     close(root);
     fail(job, "Cannot record extraction staging ownership.");
     return;
   }
-  // A killed controller can leave its receipt spool. The independent worker
-  // never uses this file; a new controller rebuilds it from the durable journal.
-  const auto spill = durable_workers() ? ".ps5-react-receipt-lines-" + std::to_string(
-      std::chrono::steady_clock::now().time_since_epoch().count()) : ".ps5-react-receipt-lines";
-  Receipt receipt(staging, "P5AR001:" + identity, spill);
+  Receipt receipt(staging, "P5AR001:" + identity);
   std::string error;
   trace("staging ok", staging.c_str());
   {
@@ -1141,12 +897,8 @@ void run(const std::shared_ptr<Job>& pointer) {
   if (request.stream) {
     if (!extract_rar(job, staging, receipt, error) && error.empty()) error = "Extracting while downloading needs the RAR worker.";
   } else if (seven_zip_worker) {
-    if (!extract_worker(job, staging, receipt, error, seven_zip_request(request, staging, seven_zip_memory, false, seven_zip_output), "7z") && error.empty())
+    if (!extract_worker(job, staging, receipt, error, seven_zip_request(request, staging, seven_zip_memory), "7z") && error.empty())
       error = "This archive needs the payload loader to extract: none answered on port 9021.";
-  } else if (durable_workers() && lines && !rar_volumes(request)) {
-    // ZIP, TAR and a stored 7z use the same independent, journalled worker.
-    // Their successful preflight already bounded decoder memory to 64 MiB.
-    extract_worker(job, staging, receipt, error, seven_zip_request(request, staging, 64ULL << 20, true, seven_zip_output), "archive");
   } else if (!rar_volumes(request) || !extract_rar(job, staging, receipt, error)) {
     const MemoryHold memory;
     std::unique_ptr<Rar5PasswordReader> decrypted;
@@ -1184,10 +936,6 @@ void run(const std::shared_ptr<Job>& pointer) {
     if (decrypted && !decrypted->error().empty()) error = decrypted->error();
     trace("read", error.c_str());
     archive_read_free(archive);
-  }
-  if (job.detached && job.worker_unconfirmed) {
-    close(root);
-    return;
   }
   // A RAR worker from before the "s" line never said it was finishing.
   if (error.empty() && !job.cancelled) enter(job, "finishing");
@@ -1267,9 +1015,10 @@ std::vector<Snapshot> poll() {
 void stop() {
   std::lock_guard lock(guard);
   if (!active) return;
-  active->detached = true;
   active->cancelled = true;
   active->worker.join();
   active.reset();
 }
 }
+
+#endif // !PS4

@@ -45,8 +45,7 @@ public:
   bool end();
   // Waits until every file is written, hashed, synced and closed (their receipt lines are in the receipt
   // given to start()), and returns the first error (empty on success or cancellation). `progress` gets the
-  // files synced of the total once the writes are done and after each fsync. Calls are serialized and
-  // increasing, although they can come from any of the syncing threads.
+  // files synced of the total once the writes are done and after each fsync, from any of the syncing threads.
   using Progress = std::function<void(std::size_t synced, std::size_t total)>;
   std::string finish(const Progress& progress = {});
   // The first error, or empty when the job was cancelled.
